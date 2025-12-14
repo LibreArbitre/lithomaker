@@ -64,6 +64,9 @@ jobs:
         aqt install-qt linux desktop ${{ env.QT_VERSION }} wasm_singlethread \
           --outputdir "$QT_INSTALL_DIR"
         
+        # Make binaries executable (aqtinstall sometimes loses execute permissions)
+        chmod +x "$QT_INSTALL_DIR/${{ env.QT_VERSION }}/wasm_singlethread/bin/"*
+        
         # Set Qt WASM path for subsequent steps
         echo "QT_WASM_DIR=$QT_INSTALL_DIR/${{ env.QT_VERSION }}/wasm_singlethread" >> $GITHUB_ENV
 
