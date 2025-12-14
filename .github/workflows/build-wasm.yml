@@ -88,17 +88,24 @@ jobs:
       run: |
         mkdir -p deploy
         
-        # Copy Qt WASM output files
-        cp build/LithoMaker.html deploy/
-        cp build/LithoMaker.js deploy/
-        cp build/LithoMaker.wasm deploy/
-        cp build/qtloader.js deploy/ 2>/dev/null || echo "No separate qtloader.js"
+        # List what Qt WASM actually generated
+        echo "=== Build output files ==="
+        ls -la build/
+        
+        # Copy Qt WASM output files (find the actual generated files)
+        # Qt WASM generates: appname.html, appname.js, appname.wasm, qtloader.js
+        cp build/*.html deploy/ 2>/dev/null || echo "No HTML files"
+        cp build/*.js deploy/ 2>/dev/null || echo "No JS files"
+        cp build/*.wasm deploy/ 2>/dev/null || echo "No WASM files"
         
         # Copy custom web assets
         cp web/style.css deploy/
         
-        # Create our custom index.html that wraps Qt output
-        cp web/index.html deploy/
+        # Rename the Qt-generated HTML to index.html for GitHub Pages
+        # (Qt generates LithoMaker.html, we want index.html)
+        if [ -f deploy/LithoMaker.html ]; then
+          mv deploy/LithoMaker.html deploy/index.html
+        fi
         
         # Copy favicon if exists
         cp default.png deploy/favicon.png 2>/dev/null || echo "No favicon"
