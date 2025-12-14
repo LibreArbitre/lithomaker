@@ -44,21 +44,34 @@ jobs:
         emcc --version
         em++ --version
 
-    - name: Install Qt6 for WASM
+    - name: Install Qt6 Host (Linux)
       uses: jurplel/install-qt-action@v3
       with:
         version: ${{ env.QT_VERSION }}
         host: 'linux'
-        target: 'wasm'
-        arch: 'wasm_singlethread'
-        modules: ''
+        target: 'desktop'
+        arch: 'gcc_64'
         cache: true
+        set-env: true
+
+    - name: Install Qt6 WASM Architecture
+      run: |
+        # Install aqtinstall
+        pip install aqtinstall
+        
+        # Install Qt WASM singlethread architecture to a known location
+        QT_INSTALL_DIR="${RUNNER_TEMP}/qt-wasm"
+        aqt install-qt linux desktop ${{ env.QT_VERSION }} wasm_singlethread \
+          --outputdir "$QT_INSTALL_DIR"
+        
+        # Set Qt WASM path for subsequent steps
+        echo "QT_WASM_DIR=$QT_INSTALL_DIR/${{ env.QT_VERSION }}/wasm_singlethread" >> $GITHUB_ENV
 
     - name: Configure CMake for WASM
       run: |
         source $EMSDK/emsdk_env.sh
         mkdir build && cd build
-        $Qt6_DIR/bin/qt-cmake .. \
+        $QT_WASM_DIR/bin/qt-cmake .. \
           -DBUILD_WASM=ON \
           -DCMAKE_BUILD_TYPE=Release
 
