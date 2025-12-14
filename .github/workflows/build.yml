@@ -1,40 +1,17 @@
-name: Build
+name: Build and Release
 
 on:
   push:
     branches: [ main, master ]
+    tags:
+      - 'v*'
   pull_request:
     branches: [ main, master ]
 
+env:
+  QT_VERSION: '6.5.3'
+
 jobs:
-  build-linux:
-    runs-on: ubuntu-22.04
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Install Qt6
-      uses: jurplel/install-qt-action@v3
-      with:
-        version: '6.5.*'
-        modules: 'qt3d'
-
-    - name: Install dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y libomp-dev
-
-    - name: Configure CMake
-      run: cmake -B build -DCMAKE_BUILD_TYPE=Release
-
-    - name: Build
-      run: cmake --build build --parallel
-
-    - name: Upload artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: LithoMaker-Linux
-        path: build/LithoMaker
-
   build-windows:
     runs-on: windows-latest
     steps:
@@ -43,21 +20,96 @@ jobs:
     - name: Install Qt6
       uses: jurplel/install-qt-action@v3
       with:
-        version: '6.5.*'
+        version: ${{ env.QT_VERSION }}
         modules: 'qt3d'
         arch: 'win64_msvc2019_64'
 
+    - name: Setup MSVC
+      uses: ilammy/msvc-dev-cmd@v1
+
     - name: Configure CMake
-      run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+      run: cmake -B build -DCMAKE_BUILD_TYPE=Release -G "NMake Makefiles"
 
     - name: Build
       run: cmake --build build --config Release
 
+    - name: Create deployment folder
+      run: |
+        mkdir deploy
+        copy build\LithoMaker.exe deploy\
+        copy examples\*.jpg deploy\examples\ 2>nul || echo "No examples"
+        mkdir deploy\examples
+        xcopy examples deploy\examples\ /E /I /Y 2>nul || echo "No examples folder"
+
+    - name: Deploy Qt dependencies
+      run: |
+        windeployqt deploy\LithoMaker.exe --release --no-translations --no-system-d3d-compiler --no-opengl-sw
+
+    - name: Create Windows archive
+      run: |
+        cd deploy
+        Compress-Archive -Path * -DestinationPath ..\LithoMaker-Windows-x64.zip
+
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: LithoMaker-Windows
-        path: build/Release/LithoMaker.exe
+        name: LithoMaker-Windows-x64
+        path: LithoMaker-Windows-x64.zip
+
+  build-linux:
+    runs-on: ubuntu-22.04
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Qt6
+      uses: jurplel/install-qt-action@v3
+      with:
+        version: ${{ env.QT_VERSION }}
+        modules: 'qt3d'
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libomp-dev libfuse2 libxcb-cursor0
+
+    - name: Configure CMake
+      run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr
+
+    - name: Build
+      run: cmake --build build --parallel
+
+    - name: Create AppDir structure
+      run: |
+        mkdir -p AppDir/usr/bin
+        mkdir -p AppDir/usr/share/applications
+        mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
+        mkdir -p AppDir/usr/share/lithomaker/examples
+        cp build/LithoMaker AppDir/usr/bin/
+        cp default.desktop AppDir/usr/share/applications/lithomaker.desktop
+        cp default.png AppDir/usr/share/icons/hicolor/256x256/apps/lithomaker.png
+        cp -r examples/* AppDir/usr/share/lithomaker/examples/ 2>/dev/null || true
+
+    - name: Download linuxdeploy tools
+      run: |
+        wget -q https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+        wget -q https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage
+        chmod +x linuxdeploy*.AppImage
+
+    - name: Create AppImage
+      run: |
+        export QMAKE=$Qt6_DIR/bin/qmake
+        export QT_PLUGIN_PATH=$Qt6_DIR/plugins
+        export LD_LIBRARY_PATH=$Qt6_DIR/lib:$LD_LIBRARY_PATH
+        ./linuxdeploy-x86_64.AppImage --appdir AppDir --plugin qt --output appimage \
+          --desktop-file AppDir/usr/share/applications/lithomaker.desktop \
+          --icon-file AppDir/usr/share/icons/hicolor/256x256/apps/lithomaker.png
+        mv LithoMaker*.AppImage LithoMaker-Linux-x86_64.AppImage
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: LithoMaker-Linux-x86_64
+        path: LithoMaker-Linux-x86_64.AppImage
 
   build-macos:
     runs-on: macos-latest
@@ -67,7 +119,7 @@ jobs:
     - name: Install Qt6
       uses: jurplel/install-qt-action@v3
       with:
-        version: '6.5.*'
+        version: ${{ env.QT_VERSION }}
         modules: 'qt3d'
 
     - name: Install OpenMP
@@ -76,6 +128,7 @@ jobs:
     - name: Configure CMake
       run: |
         cmake -B build -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64" \
           -DOpenMP_C_FLAGS="-Xclang -fopenmp -I$(brew --prefix libomp)/include" \
           -DOpenMP_CXX_FLAGS="-Xclang -fopenmp -I$(brew --prefix libomp)/include" \
           -DOpenMP_C_LIB_NAMES="omp" \
@@ -85,22 +138,39 @@ jobs:
     - name: Build
       run: cmake --build build --parallel
 
+    - name: Deploy Qt and create DMG
+      run: |
+        macdeployqt build/LithoMaker.app -dmg
+        mv build/LithoMaker.dmg LithoMaker-macOS-Universal.dmg
+
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: LithoMaker-macOS
-        path: build/LithoMaker.app
+        name: LithoMaker-macOS-Universal
+        path: LithoMaker-macOS-Universal.dmg
 
   release:
-    needs: [build-linux, build-windows, build-macos]
+    needs: [build-windows, build-linux, build-macos]
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
     steps:
     - name: Download all artifacts
       uses: actions/download-artifact@v4
 
-    - name: Create release archive
-      run: |
-        zip -r LithoMaker-Linux.zip LithoMaker-Linux/
-        zip -r LithoMaker-Windows.zip LithoMaker-Windows/
-        zip -r LithoMaker-macOS.zip LithoMaker-macOS/
+    - name: Display structure of downloaded files
+      run: ls -R
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        draft: false
+        prerelease: ${{ contains(github.ref, '-beta') || contains(github.ref, '-alpha') || contains(github.ref, '-rc') }}
+        generate_release_notes: true
+        files: |
+          LithoMaker-Windows-x64/LithoMaker-Windows-x64.zip
+          LithoMaker-Linux-x86_64/LithoMaker-Linux-x86_64.AppImage
+          LithoMaker-macOS-Universal/LithoMaker-macOS-Universal.dmg
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -23,16 +23,16 @@ LithoMaker DOES NOT upload or process your image files online. All processing is
 ## Running LithoMaker
 
 ### Windows
-* Download the latest `LithoMaker-win64.zip` from the releases page
-* Unzip and run `LithoMaker.exe`
+* Download the latest `LithoMaker-Windows-x64.zip` from the [releases page](https://github.com/LibreArbitre/lithomaker/releases)
+* Unzip to any folder and run `LithoMaker.exe`
 
 ### Ubuntu Linux
-* Download the latest AppImage from the releases page
+* Download the latest `LithoMaker-Linux-x86_64.AppImage` from the [releases page](https://github.com/LibreArbitre/lithomaker/releases)
 * Right-click → Properties → Permissions → "Allow executing file as program"
 * Double-click to run
 
 ### macOS
-* Download the latest `.dmg` from the releases page
+* Download the latest `LithoMaker-macOS-Universal.dmg` from the [releases page](https://github.com/LibreArbitre/lithomaker/releases)
 * Open and drag to Applications
 
 ## Using LithoMaker
