@@ -127,8 +127,9 @@ jobs:
 
     - name: Configure CMake
       run: |
+        # Build for native architecture only (arm64 on current runners)
+        # This ensures compatibility with Homebrew's arm64 libomp
         cmake -B build -DCMAKE_BUILD_TYPE=Release \
-          -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64" \
           -DOpenMP_C_FLAGS="-Xclang -fopenmp -I$(brew --prefix libomp)/include" \
           -DOpenMP_CXX_FLAGS="-Xclang -fopenmp -I$(brew --prefix libomp)/include" \
           -DOpenMP_C_LIB_NAMES="omp" \
@@ -141,13 +142,13 @@ jobs:
     - name: Deploy Qt and create DMG
       run: |
         macdeployqt build/LithoMaker.app -dmg
-        mv build/LithoMaker.dmg LithoMaker-macOS-Universal.dmg
+        mv build/LithoMaker.dmg LithoMaker-macOS-arm64.dmg
 
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: LithoMaker-macOS-Universal
-        path: LithoMaker-macOS-Universal.dmg
+        name: LithoMaker-macOS-arm64
+        path: LithoMaker-macOS-arm64.dmg
 
   release:
     needs: [build-windows, build-linux, build-macos]
@@ -171,6 +172,6 @@ jobs:
         files: |
           LithoMaker-Windows-x64/LithoMaker-Windows-x64.zip
           LithoMaker-Linux-x86_64/LithoMaker-Linux-x86_64.AppImage
-          LithoMaker-macOS-Universal/LithoMaker-macOS-Universal.dmg
+          LithoMaker-macOS-arm64/LithoMaker-macOS-arm64.dmg
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
