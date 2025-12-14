@@ -76,7 +76,8 @@ jobs:
         mkdir build && cd build
         $QT_WASM_DIR/bin/qt-cmake .. \
           -DBUILD_WASM=ON \
-          -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_BUILD_TYPE=Release \
+          -DQT_HOST_PATH=$Qt6_DIR
 
     - name: Build
       run: |
