@@ -33,14 +33,19 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Install Emscripten
-      uses: mymindstorm/setup-emsdk@v12
-      with:
-        version: ${{ env.EMSDK_VERSION }}
-        # Cache disabled - causes "Unable to reserve cache" errors on concurrent runs
-        no-cache: true
+      run: |
+        git clone https://github.com/emscripten-core/emsdk.git
+        cd emsdk
+        ./emsdk install latest
+        ./emsdk activate latest
+        source ./emsdk_env.sh
+        echo "EMSDK=$PWD" >> $GITHUB_ENV
+        echo "$PWD" >> $GITHUB_PATH
+        echo "$PWD/upstream/emscripten" >> $GITHUB_PATH
 
     - name: Verify Emscripten
       run: |
+        source emsdk/emsdk_env.sh
         emcc --version
         em++ --version
 
@@ -56,23 +61,16 @@ jobs:
 
     - name: Install Qt6 WASM Architecture
       run: |
-        # Install aqtinstall
         pip install aqtinstall
-        
-        # Install Qt WASM singlethread architecture to a known location
         QT_INSTALL_DIR="${RUNNER_TEMP}/qt-wasm"
         aqt install-qt linux desktop ${{ env.QT_VERSION }} wasm_singlethread \
           --outputdir "$QT_INSTALL_DIR"
-        
-        # Make binaries executable (aqtinstall sometimes loses execute permissions)
-        chmod +x "$QT_INSTALL_DIR/${{ env.QT_VERSION }}/wasm_singlethread/bin/"*
-        
-        # Set Qt WASM path for subsequent steps
+        chmod +x "$QT_INSTALL_DIR/${{ env.QT_VERSION }}/wasm_singlethread/bin/"* || true
         echo "QT_WASM_DIR=$QT_INSTALL_DIR/${{ env.QT_VERSION }}/wasm_singlethread" >> $GITHUB_ENV
 
     - name: Configure CMake for WASM
       run: |
-        source $EMSDK/emsdk_env.sh
+        source emsdk/emsdk_env.sh
         mkdir build && cd build
         $QT_WASM_DIR/bin/qt-cmake .. \
           -DBUILD_WASM=ON \
@@ -81,38 +79,42 @@ jobs:
 
     - name: Build
       run: |
-        source $EMSDK/emsdk_env.sh
+        source emsdk/emsdk_env.sh
         cmake --build build --parallel $(nproc)
+        
+        # Debug: Show what was generated
+        echo "=== Build directory contents ==="
+        ls -la build/
+        echo "=== Find all generated files ==="
+        find build -name "*.html" -o -name "*.wasm" -o -name "*.js" | head -50
 
     - name: Prepare deployment files
       run: |
         mkdir -p deploy
         
-        # List what Qt WASM actually generated
-        echo "=== Build output files ==="
-        ls -la build/
+        # Find and copy all WASM-related files
+        find build -name "*.html" -exec cp {} deploy/ \;
+        find build -name "*.wasm" -exec cp {} deploy/ \;
+        find build -name "*.js" -exec cp {} deploy/ \;
         
-        # Copy Qt WASM output files (find the actual generated files)
-        # Qt WASM generates: appname.html, appname.js, appname.wasm, qtloader.js
-        cp build/*.html deploy/ 2>/dev/null || echo "No HTML files"
-        cp build/*.js deploy/ 2>/dev/null || echo "No JS files"
-        cp build/*.wasm deploy/ 2>/dev/null || echo "No WASM files"
-        
-        # Copy custom web assets
+        # Copy our custom styles
         cp web/style.css deploy/
+        cp default.png deploy/favicon.png 2>/dev/null || true
         
-        # Rename the Qt-generated HTML to index.html for GitHub Pages
-        # (Qt generates LithoMaker.html, we want index.html)
+        # Create index.html if the Qt-generated one exists
         if [ -f deploy/LithoMaker.html ]; then
           mv deploy/LithoMaker.html deploy/index.html
         fi
         
-        # Copy favicon if exists
-        cp default.png deploy/favicon.png 2>/dev/null || echo "No favicon"
-        
-        # List deployed files
+        # Check if we have the essential files
         echo "=== Deployment files ==="
         ls -la deploy/
+        
+        if [ ! -f deploy/*.wasm ]; then
+          echo "ERROR: No WASM files found!"
+          echo "Build may have failed silently. Check above for errors."
+          exit 1
+        fi
 
     - name: Upload WASM artifact
       uses: actions/upload-artifact@v4
