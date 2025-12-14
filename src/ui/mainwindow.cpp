@@ -7,7 +7,9 @@
  */
 
 #include "mainwindow.h"
+#ifndef BUILD_WASM
 #include "previewwidget.h"
+#endif
 #include "widgets/slider.h"
 #include "aboutbox.h"
 #include "configdialog.h"
@@ -157,6 +159,7 @@ void MainWindow::createWidgets() {
 
     controlsLayout->addStretch();
 
+#ifndef BUILD_WASM
     // Right panel - 3D preview
     m_previewWidget = new PreviewWidget();
 
@@ -164,6 +167,15 @@ void MainWindow::createWidgets() {
     splitter->addWidget(m_previewWidget);
     splitter->setStretchFactor(0, 1);
     splitter->setStretchFactor(1, 2);
+#else
+    // WASM: No 3D preview, just use controls
+    splitter->addWidget(controlsWidget);
+    auto* placeholder = new QLabel(tr("3D Preview not available in browser version"));
+    placeholder->setAlignment(Qt::AlignCenter);
+    splitter->addWidget(placeholder);
+    splitter->setStretchFactor(0, 1);
+    splitter->setStretchFactor(1, 1);
+#endif
 
     mainLayout->addWidget(splitter);
 
@@ -368,8 +380,10 @@ void MainWindow::onRenderClicked() {
     m_statusLabel->setText(tr("Updating preview..."));
     QApplication::processEvents();
 
+#ifndef BUILD_WASM
     // Update preview
     m_previewWidget->setMesh(std::move(generatedMesh));
+#endif
 
     m_progressBar->setValue(90);
     m_statusLabel->setText(tr("Exporting..."));

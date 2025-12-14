@@ -22,7 +22,9 @@ class QComboBox;
 
 namespace LithoMaker {
 
+#ifndef BUILD_WASM
 class PreviewWidget;
+#endif
 class Slider;
 
 /**
@@ -74,7 +76,9 @@ private:
     QPushButton* m_renderButton{nullptr};
     QProgressBar* m_progressBar{nullptr};
     QLabel* m_statusLabel{nullptr};
+#ifndef BUILD_WASM
     PreviewWidget* m_previewWidget{nullptr};
+#endif
 
     // Mesh generation
     std::unique_ptr<MeshGenerator> m_meshGenerator;

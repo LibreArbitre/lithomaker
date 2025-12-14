@@ -88,7 +88,6 @@ set(UI_SOURCES
     src/ui/mainwindow.cpp
     src/ui/configdialog.cpp
     src/ui/configpages.cpp
-    src/ui/previewwidget.cpp
     src/ui/aboutbox.cpp
     src/ui/widgets/slider.cpp
     src/ui/widgets/checkbox.cpp
@@ -100,13 +99,18 @@ set(UI_HEADERS
     src/ui/mainwindow.h
     src/ui/configdialog.h
     src/ui/configpages.h
-    src/ui/previewwidget.h
     src/ui/aboutbox.h
     src/ui/widgets/slider.h
     src/ui/widgets/checkbox.h
     src/ui/widgets/combobox.h
     src/ui/widgets/lineedit.h
 )
+
+# PreviewWidget uses QOpenGLWidget - not available in WASM
+if(NOT BUILD_WASM)
+    list(APPEND UI_SOURCES src/ui/previewwidget.cpp)
+    list(APPEND UI_HEADERS src/ui/previewwidget.h)
+endif()
 
 # Resources
 set(RESOURCES
@@ -159,6 +163,9 @@ if(BUILD_WASM)
         "SHELL:-s ASYNCIFY=1"
         "SHELL:-s EXPORTED_RUNTIME_METHODS=['ccall','cwrap']"
     )
+    
+    # Define BUILD_WASM for conditional compilation in C++ code
+    target_compile_definitions(${PROJECT_NAME} PRIVATE BUILD_WASM)
     
     message(STATUS "WASM build configured with async support and 2GB max memory")
 else()
