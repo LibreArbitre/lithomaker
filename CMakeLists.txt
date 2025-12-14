@@ -1,0 +1,170 @@
+cmake_minimum_required(VERSION 3.21)
+
+project(LithoMaker
+    VERSION 1.0.0
+    DESCRIPTION "Creates 3D lithophanes from images"
+    LANGUAGES CXX
+)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTORCC ON)
+set(CMAKE_AUTOUIC ON)
+
+# Find Qt6
+find_package(Qt6 REQUIRED COMPONENTS
+    Core
+    Widgets
+    Gui
+    OpenGL
+    OpenGLWidgets
+)
+
+# Find OpenMP
+find_package(OpenMP)
+
+# Version from file
+file(READ "${CMAKE_SOURCE_DIR}/VERSION" VERSION_FILE)
+string(REGEX MATCH "VERSION=([0-9]+\\.[0-9]+\\.[0-9]+)" _ ${VERSION_FILE})
+set(LITHOMAKER_VERSION ${CMAKE_MATCH_1})
+
+# Configure version header
+configure_file(
+    "${CMAKE_SOURCE_DIR}/src/version.h.in"
+    "${CMAKE_BINARY_DIR}/generated/version.h"
+)
+
+# Source files - Core
+set(CORE_SOURCES
+    src/core/settings.cpp
+    src/core/imageloader.cpp
+)
+
+set(CORE_HEADERS
+    src/core/settings.h
+    src/core/imageloader.h
+)
+
+# Source files - Mesh
+set(MESH_SOURCES
+    src/mesh/meshgenerator.cpp
+)
+
+set(MESH_HEADERS
+    src/mesh/meshgenerator.h
+)
+
+# Source files - Export
+set(EXPORT_SOURCES
+    src/export/stlexporter.cpp
+    src/export/objexporter.cpp
+    src/export/threemfexporter.cpp
+)
+
+set(EXPORT_HEADERS
+    src/export/exporter.h
+    src/export/stlexporter.h
+    src/export/objexporter.h
+    src/export/threemfexporter.h
+)
+
+# Source files - UI
+set(UI_SOURCES
+    src/ui/mainwindow.cpp
+    src/ui/configdialog.cpp
+    src/ui/configpages.cpp
+    src/ui/previewwidget.cpp
+    src/ui/aboutbox.cpp
+    src/ui/widgets/slider.cpp
+    src/ui/widgets/checkbox.cpp
+    src/ui/widgets/combobox.cpp
+    src/ui/widgets/lineedit.cpp
+)
+
+set(UI_HEADERS
+    src/ui/mainwindow.h
+    src/ui/configdialog.h
+    src/ui/configpages.h
+    src/ui/previewwidget.h
+    src/ui/aboutbox.h
+    src/ui/widgets/slider.h
+    src/ui/widgets/checkbox.h
+    src/ui/widgets/combobox.h
+    src/ui/widgets/lineedit.h
+)
+
+# Resources
+set(RESOURCES
+    lithomaker.qrc
+)
+
+# All sources
+set(ALL_SOURCES
+    src/main.cpp
+    ${CORE_SOURCES}
+    ${MESH_SOURCES}
+    ${EXPORT_SOURCES}
+    ${UI_SOURCES}
+)
+
+set(ALL_HEADERS
+    ${CORE_HEADERS}
+    ${MESH_HEADERS}
+    ${EXPORT_HEADERS}
+    ${UI_HEADERS}
+)
+
+# Create executable
+add_executable(${PROJECT_NAME}
+    ${ALL_SOURCES}
+    ${ALL_HEADERS}
+    ${RESOURCES}
+)
+
+# Include directories
+target_include_directories(${PROJECT_NAME} PRIVATE
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_BINARY_DIR}/generated
+)
+
+# Link libraries
+target_link_libraries(${PROJECT_NAME} PRIVATE
+    Qt6::Core
+    Qt6::Widgets
+    Qt6::Gui
+    Qt6::OpenGL
+    Qt6::OpenGLWidgets
+)
+
+# OpenMP
+if(OpenMP_CXX_FOUND)
+    target_link_libraries(${PROJECT_NAME} PRIVATE OpenMP::OpenMP_CXX)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE USE_OPENMP)
+endif()
+
+# Platform-specific
+if(WIN32)
+    set_target_properties(${PROJECT_NAME} PROPERTIES
+        WIN32_EXECUTABLE TRUE
+    )
+    target_sources(${PROJECT_NAME} PRIVATE lithomaker.rc)
+endif()
+
+if(APPLE)
+    set_target_properties(${PROJECT_NAME} PROPERTIES
+        MACOSX_BUNDLE TRUE
+        MACOSX_BUNDLE_BUNDLE_NAME ${PROJECT_NAME}
+        MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION}
+        MACOSX_BUNDLE_SHORT_VERSION_STRING ${PROJECT_VERSION}
+    )
+endif()
+
+# Install
+install(TARGETS ${PROJECT_NAME}
+    BUNDLE DESTINATION .
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+
+# Copy examples
+install(DIRECTORY examples/ DESTINATION share/${PROJECT_NAME}/examples)
