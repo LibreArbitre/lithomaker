@@ -36,7 +36,8 @@ jobs:
       uses: mymindstorm/setup-emsdk@v12
       with:
         version: ${{ env.EMSDK_VERSION }}
-        actions-cache-folder: 'emsdk-cache'
+        # Cache disabled - causes "Unable to reserve cache" errors on concurrent runs
+        no-cache: true
 
     - name: Verify Emscripten
       run: |
