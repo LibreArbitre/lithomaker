@@ -12,12 +12,20 @@
 #include <QDebug>
 #include <QMap>
 #include <QDir>
+#ifndef BUILD_WASM
 #include <QProcess>
+#endif
 
 namespace LithoMaker {
 
 ExportResult ThreeMfExporter::exportMesh(const QList<QVector3D>& mesh, 
                                           const QString& filePath) {
+#ifdef BUILD_WASM
+    // 3MF export requires QProcess which is not available in browser
+    Q_UNUSED(mesh);
+    Q_UNUSED(filePath);
+    return {false, QObject::tr("3MF export is not available in browser version. Please use STL or OBJ format."), 0};
+#else
     if (mesh.isEmpty()) {
         return {false, QObject::tr("Empty mesh"), 0};
     }
@@ -89,6 +97,7 @@ ExportResult ThreeMfExporter::exportMesh(const QList<QVector3D>& mesh,
     qInfo() << "Exported 3MF:" << filePath << "(" << size << "bytes)";
 
     return {true, QString(), size};
+#endif // BUILD_WASM
 }
 
 QString ThreeMfExporter::generateContentTypesXml() {
