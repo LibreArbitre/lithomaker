@@ -10,7 +10,9 @@ on:
 
 env:
   QT_VERSION: '6.5.3'
-  EMSDK_VERSION: '3.1.37'
+  # IMPORTANT: This must match Qt's required Emscripten version
+  # Qt 6.5.x requires Emscripten 3.1.25
+  EMSDK_VERSION: '3.1.25'
 
 # Sets permissions for GitHub Pages deployment
 permissions:
