@@ -4,7 +4,7 @@ Creates 3D lithophanes from image files and exports them to STL, OBJ, or 3MF fil
 
 **This is a modernized fork of [LithoMaker by Lars Muldjord](https://github.com/muldjord/lithomaker).**
 
-Download the latest release [here](https://github.com/YOUR_USERNAME/lithomaker/releases).
+Download the latest release [here](https://github.com/LibreArbitre/lithomaker/releases/download/1.0.0/LithoMaker-Windows-x64.zip).
 
 Check out the original video tutorial [here](https://youtu.be/Bjbdk0XiiNY).
 
