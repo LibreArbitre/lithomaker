@@ -1,0 +1,124 @@
+name: Build WASM and Deploy to Pages
+
+on:
+  push:
+    branches: [main, master]
+    tags: ['v*']
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+env:
+  QT_VERSION: '6.5.3'
+  EMSDK_VERSION: '3.1.37'
+
+# Sets permissions for GitHub Pages deployment
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build-wasm:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Install Emscripten
+      uses: mymindstorm/setup-emsdk@v12
+      with:
+        version: ${{ env.EMSDK_VERSION }}
+        actions-cache-folder: 'emsdk-cache'
+
+    - name: Verify Emscripten
+      run: |
+        emcc --version
+        em++ --version
+
+    - name: Install Qt6 for WASM
+      uses: jurplel/install-qt-action@v3
+      with:
+        version: ${{ env.QT_VERSION }}
+        host: 'linux'
+        target: 'wasm'
+        arch: 'wasm_singlethread'
+        modules: ''
+        cache: true
+
+    - name: Configure CMake for WASM
+      run: |
+        source $EMSDK/emsdk_env.sh
+        mkdir build && cd build
+        $Qt6_DIR/bin/qt-cmake .. \
+          -DBUILD_WASM=ON \
+          -DCMAKE_BUILD_TYPE=Release
+
+    - name: Build
+      run: |
+        source $EMSDK/emsdk_env.sh
+        cmake --build build --parallel $(nproc)
+
+    - name: Prepare deployment files
+      run: |
+        mkdir -p deploy
+        
+        # Copy Qt WASM output files
+        cp build/LithoMaker.html deploy/
+        cp build/LithoMaker.js deploy/
+        cp build/LithoMaker.wasm deploy/
+        cp build/qtloader.js deploy/ 2>/dev/null || echo "No separate qtloader.js"
+        
+        # Copy custom web assets
+        cp web/style.css deploy/
+        
+        # Create our custom index.html that wraps Qt output
+        cp web/index.html deploy/
+        
+        # Copy favicon if exists
+        cp default.png deploy/favicon.png 2>/dev/null || echo "No favicon"
+        
+        # List deployed files
+        echo "=== Deployment files ==="
+        ls -la deploy/
+
+    - name: Upload WASM artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: LithoMaker-WASM
+        path: deploy/
+        retention-days: 30
+
+  deploy-pages:
+    needs: build-wasm
+    runs-on: ubuntu-latest
+    # Only deploy on main branch or tags, not PRs
+    if: github.event_name != 'pull_request'
+    
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    
+    steps:
+    - name: Download WASM artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: LithoMaker-WASM
+        path: ./deploy
+
+    - name: Setup Pages
+      uses: actions/configure-pages@v4
+
+    - name: Upload to GitHub Pages
+      uses: actions/upload-pages-artifact@v3
+      with:
+        path: ./deploy
+
+    - name: Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v4

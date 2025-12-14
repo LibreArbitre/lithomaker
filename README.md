@@ -22,6 +22,12 @@ LithoMaker DOES NOT upload or process your image files online. All processing is
 
 ## Running LithoMaker
 
+### 🌐 Web Browser (No Installation)
+* **Try it now**: [LithoMaker Web](https://librearbitre.github.io/lithomaker/)
+* Works in Chrome, Firefox, Edge, and Safari
+* All processing happens locally - your images never leave your device
+* Requires WebAssembly support (all modern browsers)
+
 ### Windows
 * Download the latest `LithoMaker-Windows-x64.zip` from the [releases page](https://github.com/LibreArbitre/lithomaker/releases)
 * Unzip to any folder and run `LithoMaker.exe`

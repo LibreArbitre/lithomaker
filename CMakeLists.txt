@@ -12,17 +12,31 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
-# Find Qt6
-find_package(Qt6 REQUIRED COMPONENTS
-    Core
-    Widgets
-    Gui
-    OpenGL
-    OpenGLWidgets
-)
+# WASM build option
+option(BUILD_WASM "Build for WebAssembly (browser)" OFF)
 
-# Find OpenMP
-find_package(OpenMP)
+# Find Qt6 - different modules for WASM vs Desktop
+if(BUILD_WASM)
+    # WASM build - OpenGLWidgets not needed, use different approach
+    find_package(Qt6 REQUIRED COMPONENTS
+        Core
+        Widgets
+        Gui
+        OpenGL
+    )
+    message(STATUS "Configuring for WebAssembly build")
+else()
+    # Desktop build
+    find_package(Qt6 REQUIRED COMPONENTS
+        Core
+        Widgets
+        Gui
+        OpenGL
+        OpenGLWidgets
+    )
+    # Find OpenMP for desktop only (not supported in WASM)
+    find_package(OpenMP)
+endif()
 
 # Version from file
 file(READ "${CMAKE_SOURCE_DIR}/VERSION" VERSION_FILE)
@@ -128,36 +142,57 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_BINARY_DIR}/generated
 )
 
-# Link libraries
-target_link_libraries(${PROJECT_NAME} PRIVATE
-    Qt6::Core
-    Qt6::Widgets
-    Qt6::Gui
-    Qt6::OpenGL
-    Qt6::OpenGLWidgets
-)
-
-# OpenMP
-if(OpenMP_CXX_FOUND)
-    target_link_libraries(${PROJECT_NAME} PRIVATE OpenMP::OpenMP_CXX)
-    target_compile_definitions(${PROJECT_NAME} PRIVATE USE_OPENMP)
-endif()
-
-# Platform-specific
-if(WIN32)
-    set_target_properties(${PROJECT_NAME} PROPERTIES
-        WIN32_EXECUTABLE TRUE
+# Link libraries - different for WASM vs Desktop
+if(BUILD_WASM)
+    target_link_libraries(${PROJECT_NAME} PRIVATE
+        Qt6::Core
+        Qt6::Widgets
+        Qt6::Gui
+        Qt6::OpenGL
     )
-    target_sources(${PROJECT_NAME} PRIVATE lithomaker.rc)
-endif()
-
-if(APPLE)
-    set_target_properties(${PROJECT_NAME} PROPERTIES
-        MACOSX_BUNDLE TRUE
-        MACOSX_BUNDLE_BUNDLE_NAME ${PROJECT_NAME}
-        MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION}
-        MACOSX_BUNDLE_SHORT_VERSION_STRING ${PROJECT_VERSION}
+    
+    # WASM-specific linker options
+    target_link_options(${PROJECT_NAME} PRIVATE
+        "SHELL:-s WASM=1"
+        "SHELL:-s ALLOW_MEMORY_GROWTH=1"
+        "SHELL:-s MAXIMUM_MEMORY=2GB"
+        "SHELL:-s ASYNCIFY=1"
+        "SHELL:-s EXPORTED_RUNTIME_METHODS=['ccall','cwrap']"
     )
+    
+    message(STATUS "WASM build configured with async support and 2GB max memory")
+else()
+    # Desktop linking
+    target_link_libraries(${PROJECT_NAME} PRIVATE
+        Qt6::Core
+        Qt6::Widgets
+        Qt6::Gui
+        Qt6::OpenGL
+        Qt6::OpenGLWidgets
+    )
+    
+    # OpenMP (desktop only)
+    if(OpenMP_CXX_FOUND)
+        target_link_libraries(${PROJECT_NAME} PRIVATE OpenMP::OpenMP_CXX)
+        target_compile_definitions(${PROJECT_NAME} PRIVATE USE_OPENMP)
+    endif()
+    
+    # Platform-specific
+    if(WIN32)
+        set_target_properties(${PROJECT_NAME} PROPERTIES
+            WIN32_EXECUTABLE TRUE
+        )
+        target_sources(${PROJECT_NAME} PRIVATE lithomaker.rc)
+    endif()
+    
+    if(APPLE)
+        set_target_properties(${PROJECT_NAME} PROPERTIES
+            MACOSX_BUNDLE TRUE
+            MACOSX_BUNDLE_BUNDLE_NAME ${PROJECT_NAME}
+            MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION}
+            MACOSX_BUNDLE_SHORT_VERSION_STRING ${PROJECT_VERSION}
+        )
+    endif()
 endif()
 
 # Install

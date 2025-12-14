@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="LithoMaker - Create 3D lithophanes from images directly in your browser. No upload, no server - all processing happens locally.">
+    <title>LithoMaker - Browser Lithophane Generator</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" type="image/png" href="favicon.png">
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div id="loading">
+        <div class="loading-content">
+            <h1>🖼️ LithoMaker</h1>
+            <p>Create 3D lithophanes from your images</p>
+            <div class="progress-container">
+                <progress id="progress" value="0" max="100"></progress>
+                <span id="progress-text">Loading WebAssembly...</span>
+            </div>
+            <p class="privacy-note">
+                🔒 All processing happens in your browser.<br>
+                Your images never leave your device.
+            </p>
+        </div>
+    </div>
+
+    <!-- Qt WASM Application Container -->
+    <div id="screen"></div>
+
+    <!-- Qt WASM Loader -->
+    <script type="text/javascript">
+        var Module = {
+            onRuntimeInitialized: function() {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('screen').style.display = 'block';
+            },
+            setProgress: function(current, total) {
+                var progress = document.getElementById('progress');
+                var text = document.getElementById('progress-text');
+                if (progress && text) {
+                    var percent = Math.round((current / total) * 100);
+                    progress.value = percent;
+                    text.textContent = 'Loading... ' + percent + '%';
+                }
+            }
+        };
+    </script>
+    <script src="qtloader.js"></script>
+    <script src="LithoMaker.js"></script>
+</body>
+</html>
