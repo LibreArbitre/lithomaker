@@ -93,29 +93,52 @@ jobs:
       run: |
         mkdir -p deploy
         
-        # Find and copy all WASM-related files
-        find build -name "*.html" -exec cp {} deploy/ \;
+        echo "=== Qt WASM directory contents ==="
+        ls -la "$QT_WASM_DIR/" || true
+        ls -la "$QT_WASM_DIR/plugins/" 2>/dev/null || true
+        
+        echo "=== Build directory recursive ==="
+        find build -type f \( -name "*.html" -o -name "*.wasm" -o -name "*.js" -o -name "*.data" \) | head -100
+        
+        # Copy all WASM-related files from build directory
         find build -name "*.wasm" -exec cp {} deploy/ \;
         find build -name "*.js" -exec cp {} deploy/ \;
+        find build -name "*.data" -exec cp {} deploy/ \; 2>/dev/null || true
         
-        # Copy our custom styles
+        # Copy qtloader.js from Qt WASM installation if not already in build
+        if [ ! -f deploy/qtloader.js ]; then
+          echo "Looking for qtloader.js..."
+          QTLOADER=$(find "$QT_WASM_DIR" -name "qtloader.js" 2>/dev/null | head -1)
+          if [ -n "$QTLOADER" ]; then
+            echo "Found qtloader.js at: $QTLOADER"
+            cp "$QTLOADER" deploy/
+          else
+            echo "WARNING: qtloader.js not found in Qt WASM directory"
+          fi
+        fi
+        
+        # Use our custom index.html (it references LithoMaker.js and qtloader.js)
+        cp web/index.html deploy/
         cp web/style.css deploy/
         cp default.png deploy/favicon.png 2>/dev/null || true
         
-        # Create index.html if the Qt-generated one exists
-        if [ -f deploy/LithoMaker.html ]; then
-          mv deploy/LithoMaker.html deploy/index.html
-        fi
-        
-        # Check if we have the essential files
-        echo "=== Deployment files ==="
+        # Verify essential files exist
+        echo "=== Final deployment files ==="
         ls -la deploy/
         
-        if [ ! -f deploy/*.wasm ]; then
-          echo "ERROR: No WASM files found!"
-          echo "Build may have failed silently. Check above for errors."
+        if [ ! -f deploy/LithoMaker.wasm ]; then
+          echo "ERROR: LithoMaker.wasm not found!"
+          echo "Looking for any .wasm files..."
+          find deploy -name "*.wasm"
           exit 1
         fi
+        
+        if [ ! -f deploy/index.html ]; then
+          echo "ERROR: index.html not found!"
+          exit 1
+        fi
+        
+        echo "=== Deployment ready ==="
 
     - name: Upload WASM artifact
       uses: actions/upload-artifact@v4
