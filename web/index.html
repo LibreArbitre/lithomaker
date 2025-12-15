@@ -112,9 +112,9 @@
     <!-- Qt WASM Application Canvas -->
     <canvas id="qt-canvas"></canvas>
 
-    <!-- Qt WASM Loader Scripts - ORDER MATTERS -->
-    <script src="qtloader.js"></script>
+    <!-- Qt WASM Loader Scripts - LithoMaker.js MUST be first (defines Module) -->
     <script src="LithoMaker.js"></script>
+    <script src="qtloader.js"></script>
     <script>
         (async function () {
             const loadingDiv = document.getElementById('loading');
