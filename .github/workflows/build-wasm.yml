@@ -95,12 +95,12 @@ jobs:
         
         echo "=== Qt WASM directory contents ==="
         ls -la "$QT_WASM_DIR/" || true
-        ls -la "$QT_WASM_DIR/plugins/" 2>/dev/null || true
         
         echo "=== Build directory recursive ==="
         find build -type f \( -name "*.html" -o -name "*.wasm" -o -name "*.js" -o -name "*.data" \) | head -100
         
         # Copy all WASM-related files from build directory
+        find build -name "*.html" -exec cp {} deploy/ \;
         find build -name "*.wasm" -exec cp {} deploy/ \;
         find build -name "*.js" -exec cp {} deploy/ \;
         find build -name "*.data" -exec cp {} deploy/ \; 2>/dev/null || true
@@ -117,8 +117,28 @@ jobs:
           fi
         fi
         
-        # Use our custom index.html (it references LithoMaker.js and qtloader.js)
-        cp web/index.html deploy/
+        # Use Qt-generated HTML (has correct Qt6 WASM integration)
+        # Rename LithoMaker.html to index.html
+        if [ -f deploy/LithoMaker.html ]; then
+          echo "Using Qt-generated HTML"
+          mv deploy/LithoMaker.html deploy/index.html
+          
+          # Inject our custom CSS into the HTML head
+          sed -i 's|</head>|<link rel="stylesheet" href="style.css"></head>|' deploy/index.html
+          
+          # Add favicon
+          sed -i 's|</head>|<link rel="icon" type="image/png" href="favicon.png"></head>|' deploy/index.html
+          
+          # Update title
+          sed -i 's|<title>.*</title>|<title>LithoMaker - Browser Lithophane Generator</title>|' deploy/index.html
+        else
+          echo "ERROR: Qt-generated LithoMaker.html not found!"
+          echo "Available HTML files:"
+          find deploy -name "*.html"
+          exit 1
+        fi
+        
+        # Copy assets
         cp web/style.css deploy/
         cp default.png deploy/favicon.png 2>/dev/null || true
         
@@ -126,15 +146,11 @@ jobs:
         echo "=== Final deployment files ==="
         ls -la deploy/
         
+        echo "=== index.html head section ==="
+        head -30 deploy/index.html
+        
         if [ ! -f deploy/LithoMaker.wasm ]; then
           echo "ERROR: LithoMaker.wasm not found!"
-          echo "Looking for any .wasm files..."
-          find deploy -name "*.wasm"
-          exit 1
-        fi
-        
-        if [ ! -f deploy/index.html ]; then
-          echo "ERROR: index.html not found!"
           exit 1
         fi
         
