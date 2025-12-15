@@ -36,8 +36,9 @@ jobs:
       run: |
         git clone https://github.com/emscripten-core/emsdk.git
         cd emsdk
-        ./emsdk install latest
-        ./emsdk activate latest
+        # CRITICAL: Must use exact version that Qt 6.5.3 was built with
+        ./emsdk install 3.1.25
+        ./emsdk activate 3.1.25
         source ./emsdk_env.sh
         echo "EMSDK=$PWD" >> $GITHUB_ENV
         echo "$PWD" >> $GITHUB_PATH
