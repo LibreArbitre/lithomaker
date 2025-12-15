@@ -2,7 +2,7 @@ name: Build WASM and Deploy to Pages
 
 on:
   push:
-    branches: [main, master]
+    branches: [main, master, wasm-dev]
     tags: ['v*']
   pull_request:
     branches: [main, master]
