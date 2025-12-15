@@ -162,6 +162,9 @@ if(BUILD_WASM)
         "SHELL:-s MAXIMUM_MEMORY=2GB"
         "SHELL:-s ASYNCIFY=1"
         "SHELL:-s EXPORTED_RUNTIME_METHODS=['ccall','cwrap']"
+        # Required for Qt WASM - enables embind for QSettings/permissions
+        "--bind"
+        "SHELL:-s FETCH=1"
     )
     
     # Define BUILD_WASM for conditional compilation in C++ code
