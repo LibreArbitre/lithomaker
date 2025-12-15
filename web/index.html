@@ -82,8 +82,8 @@
             display: none;
         }
 
-        /* Qt container */
-        #qt-container {
+        /* Qt container - canvas for the app */
+        #qt-canvas {
             width: 100%;
             height: 100vh;
             display: none;
@@ -99,7 +99,7 @@
             <p>Create 3D lithophanes from your images</p>
             <div class="progress-container">
                 <progress id="progress" value="0" max="100"></progress>
-                <span id="progress-text">Loading WebAssembly...</span>
+                <span id="progress-text">Initializing...</span>
             </div>
             <p class="privacy-note">
                 🔒 All processing happens in your browser.<br>
@@ -109,10 +109,10 @@
         </div>
     </div>
 
-    <!-- Qt WASM Application Container -->
-    <div id="qt-container"></div>
+    <!-- Qt WASM Application Canvas -->
+    <canvas id="qt-canvas"></canvas>
 
-    <!-- Qt WASM Loader Scripts -->
+    <!-- Qt WASM Loader Scripts - ORDER MATTERS -->
     <script src="qtloader.js"></script>
     <script src="LithoMaker.js"></script>
     <script>
@@ -121,60 +121,66 @@
             const progressBar = document.getElementById('progress');
             const progressText = document.getElementById('progress-text');
             const errorMessage = document.getElementById('error-message');
-            const qtContainer = document.getElementById('qt-container');
+            const canvas = document.getElementById('qt-canvas');
 
             function showError(message) {
                 errorMessage.textContent = message;
                 errorMessage.style.display = 'block';
                 progressText.textContent = 'Error loading application';
+                console.error('LithoMaker Error:', message);
             }
 
-            function updateProgress(loaded, total) {
-                if (total > 0) {
-                    const percent = Math.round((loaded / total) * 100);
-                    progressBar.value = percent;
-                    progressText.textContent = `Loading... ${percent}% (${(loaded / 1024 / 1024).toFixed(1)} MB)`;
-                }
+            function updateProgress(percent, text) {
+                progressBar.value = percent;
+                progressText.textContent = text || `Loading... ${percent}%`;
             }
 
             try {
-                // Qt 6 WASM loading using qtLoad()
-                const instance = await qtLoad({
-                    // Emscripten configuration
-                    locateFile: (path) => path,
+                updateProgress(10, 'Loading Qt libraries...');
 
-                    // Progress callback
-                    setStatus: (status) => {
-                        if (status) {
-                            const match = status.match(/([^(]+)\((\d+)\/(\d+)\)/);
-                            if (match) {
-                                updateProgress(parseInt(match[2]), parseInt(match[3]));
-                            } else {
-                                progressText.textContent = status;
-                            }
+                // Qt 6.5 uses createQtAppInstance() - NOT qtLoad()
+                // This is the correct API for Qt 6.5.x
+                if (typeof createQtAppInstance !== 'function') {
+                    throw new Error('createQtAppInstance not found. Qt WASM loader may not be loaded correctly.');
+                }
+
+                updateProgress(20, 'Initializing application...');
+
+                // Create the Qt application instance
+                const instance = await createQtAppInstance({
+                    // Canvas element for rendering
+                    canvas: canvas,
+
+                    // Show canvas when app is ready
+                    showLoader: function (loaderStatus) {
+                        // Called during loading with status updates
+                        if (loaderStatus === 'Loading') {
+                            updateProgress(50, 'Loading WebAssembly module...');
                         }
                     },
 
-                    // Qt-specific configuration
-                    qt: {
-                        containerElements: [qtContainer],
-
-                        onLoaded: () => {
-                            console.log('Qt application loaded successfully');
+                    // Called when WASM is fully loaded and running
+                    showCanvas: function () {
+                        console.log('Qt application ready');
+                        updateProgress(100, 'Application loaded!');
+                        setTimeout(() => {
                             loadingDiv.style.display = 'none';
-                            qtContainer.style.display = 'block';
-                        },
+                            canvas.style.display = 'block';
+                        }, 300);
+                    },
 
-                        onExit: (exitData) => {
-                            console.log('Qt application exited', exitData);
-                            if (exitData.code !== 0) {
-                                showError(`Application exited with code ${exitData.code}`);
-                            }
-                        }
+                    // Handle fatal errors
+                    showError: function (errorText) {
+                        showError(errorText);
+                    },
+
+                    // Handle application exit
+                    showExit: function () {
+                        console.log('Qt application exited');
                     }
                 });
 
-                console.log('Qt WASM instance created:', instance);
+                console.log('Qt WASM instance created successfully');
 
             } catch (error) {
                 console.error('Failed to load Qt application:', error);
