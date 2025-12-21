@@ -10,15 +10,20 @@ Check out the original video tutorial [here](https://youtu.be/Bjbdk0XiiNY).
 
 LithoMaker DOES NOT upload or process your image files online. All processing is done on your own computer requiring no internet access.
 
-## What's New in v1.0
+## What's New in v1.1
 
-- **Multiple image formats**: Now supports JPEG, PNG, WEBP, TIFF, and BMP
-- **3D Preview**: See your lithophane before exporting
-- **Multiple export formats**: STL (binary/ASCII), OBJ, and 3MF
-- **Drag & drop**: Simply drop your image onto the window
-- **Faster processing**: Multi-threaded mesh generation
-- **Dark theme**: Modern look and feel
-- **Improved stability**: Better handling of large images
+- **Separate Preview and Export**: Preview your lithophane in 3D before exporting
+- **Flip Image Vertically**: Option to flip the image orientation
+- **Detachable Stabilizer Feet**: Breakaway feet with thin necking for easy removal
+- **Fixed Stabilizer Geometry**: Proper watertight mesh compatible with all slicers
+
+### Previous Release (v1.0)
+- Multiple image formats: JPEG, PNG, WEBP, TIFF, and BMP
+- 3D Preview with mouse rotation and zoom
+- Multiple export formats: STL (binary/ASCII), OBJ, and 3MF
+- Drag & drop image loading
+- Multi-threaded mesh generation
+- Dark theme
 
 ## Running LithoMaker
 
@@ -43,27 +48,70 @@ LithoMaker DOES NOT upload or process your image files online. All processing is
 
 ## Using LithoMaker
 
-Most options are self-explanatory. Here are the main settings:
-
+### Main Settings
 * **Minimum thickness**: The thinnest part of the lithophane (brightest areas). Keep at 0.8mm minimum.
-* **Total thickness**: The thickest part (darkest areas). 4-5mm works well for most prints.
+* **Total thickness**: The thickest part (darkest areas). See thickness guide below.
 * **Frame border**: Width of the frame in millimeters.
 * **Width**: Total width of the lithophane including frame. Height adjusts automatically.
-* **Input image**: The image you want to convert (drag & drop or click to browse)
-* **Output file**: Where to save the 3D file
-* **Export format**: Choose STL, OBJ, or 3MF
+* **Flip image vertically**: Toggle to correct image orientation if needed.
 
-### Tips for Best Results
-* Use high-quality images (avoid compressed JPEGs with visible artifacts)
-* Color images are automatically converted to grayscale
-* For large images, consider resizing to 1500-2000 pixels width
-* Print lithophanes vertically with a light behind them
+### Workflow
+1. **Load image**: Drag & drop or click to browse
+2. **Adjust settings**: Thickness, frame, size
+3. **Click Preview**: View the 3D result
+4. **Adjust if needed**: Toggle flip, change settings, re-preview
+5. **Click Export**: Save when satisfied
 
 ### Stabilizers
-Stabilizers are small feet that support the lithophane during vertical printing. They prevent wobbling and print failures. After printing, you can easily snap them off.
+Stabilizers are small feet that support the lithophane during vertical printing. They prevent wobbling and print failures. 
+
+**Options** (in Preferences → Render):
+- **Enable stabilizers**: Toggle stabilizers on/off
+- **Make stabilizers permanent**: When unchecked (default), feet have a thin breakaway connection for easy removal. When checked, feet are solid.
 
 ### Hangers
 Small loops at the top allow you to hang your lithophane in a window or light box.
+
+## 🎯 Printing Optimization Guide
+
+### Thickness Settings (LithoMaker)
+
+| Thickness | Effect | Recommended For |
+|-----------|--------|-----------------|
+| **3-4mm** | Standard contrast, faster print | Small pieces, tests |
+| **5mm** | Good relief and detail | **Most lithophanes** |
+| **6mm** | Maximum relief | Large portraits, exhibition pieces |
+
+> **Tip**: Going from 4mm to 5mm provides noticeable improvement. 5mm is the sweet spot for quality vs print time.
+
+### Layer Height (Slicer)
+
+| Layer Height | Quality | Print Time |
+|--------------|---------|------------|
+| **0.20mm** | Acceptable, visible stepping | Fastest |
+| **0.16mm** | **Good compromise** | Moderate |
+| **0.12mm** | **Optimal for portraits** | Longer |
+| **0.08mm** | Maximum quality | Very long |
+
+> **Recommendation**: Use **0.16mm** for general use, **0.12mm** for detailed portraits.
+
+### Print Settings
+
+| Setting | Value | Why |
+|---------|-------|-----|
+| **Infill** | 100% | Required for light transmission |
+| **Speed** | 30-40mm/s | Reduces vibration artifacts |
+| **Orientation** | Vertical | How LithoMaker generates the model |
+| **Supports** | None needed | Stabilizer feet provide support |
+| **Filament** | White/Natural PLA | Best light transmission |
+
+### Best Practices
+
+1. **Image Preparation**: Use high-quality PNG, avoid heavily compressed JPEGs
+2. **Convert to grayscale** before loading (optional but recommended)
+3. **Resize large images** to 1500-2000 pixels width for faster processing
+4. **Test with small prints** (50-80mm width) before printing large pieces
+5. **Light source**: Place behind the lithophane for best effect
 
 ## Preparing Your Photo
 
@@ -111,6 +159,14 @@ make -j$(sysctl -n hw.ncpu)
 ```
 
 ## Release Notes
+
+#### Version 1.1.0 (December 2024)
+UX improvements and fixes:
+* Separate Preview and Export buttons for better workflow
+* Added "Flip image vertically" option
+* Detachable stabilizer feet with thin breakaway connection
+* Fixed stabilizer geometry for proper slicer compatibility
+* Added comprehensive printing optimization guide
 
 #### Version 1.0.0 (December 2024)
 Complete modernization:
