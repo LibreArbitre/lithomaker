@@ -141,13 +141,26 @@ void MainWindow::createWidgets() {
     formatLayout->addStretch();
     controlsLayout->addLayout(formatLayout);
 
-    // Render button
+    // Flip vertical checkbox
     controlsLayout->addSpacing(10);
-    m_renderButton = new QPushButton(tr("Render and Export"));
-    m_renderButton->setMinimumHeight(40);
-    m_renderButton->setStyleSheet("QPushButton { font-weight: bold; }");
-    connect(m_renderButton, &QPushButton::clicked, this, &MainWindow::onRenderClicked);
-    controlsLayout->addWidget(m_renderButton);
+    m_flipVerticalCheckbox = new QCheckBox(tr("Flip image vertically"));
+    connect(m_flipVerticalCheckbox, &QCheckBox::toggled, 
+            this, &MainWindow::onFlipChanged);
+    controlsLayout->addWidget(m_flipVerticalCheckbox);
+
+    // Preview button
+    m_previewButton = new QPushButton(tr("Preview"));
+    m_previewButton->setMinimumHeight(40);
+    connect(m_previewButton, &QPushButton::clicked, this, &MainWindow::onPreviewClicked);
+    controlsLayout->addWidget(m_previewButton);
+
+    // Export button (disabled until mesh is ready)
+    m_exportButton = new QPushButton(tr("Export"));
+    m_exportButton->setMinimumHeight(40);
+    m_exportButton->setEnabled(false);
+    m_exportButton->setStyleSheet("QPushButton { font-weight: bold; }");
+    connect(m_exportButton, &QPushButton::clicked, this, &MainWindow::onExportClicked);
+    controlsLayout->addWidget(m_exportButton);
 
     // Progress bar
     m_progressBar = new QProgressBar();
@@ -295,7 +308,7 @@ void MainWindow::onExportFormatChanged(int index) {
     m_outputLineEdit->setText(newPath);
 }
 
-void MainWindow::onRenderClicked() {
+void MainWindow::onPreviewClicked() {
     QString inputFile = m_inputLineEdit->text();
     
     if (!QFileInfo::exists(inputFile)) {
@@ -304,7 +317,9 @@ void MainWindow::onRenderClicked() {
         return;
     }
 
-    m_renderButton->setEnabled(false);
+    m_previewButton->setEnabled(false);
+    m_exportButton->setEnabled(false);
+    m_meshReady = false;
     m_progressBar->setVisible(true);
     m_progressBar->setValue(0);
     m_statusLabel->setText(tr("Loading image..."));
@@ -315,7 +330,7 @@ void MainWindow::onRenderClicked() {
     if (!result) {
         QMessageBox::warning(this, tr("Load failed"), 
             tr("Failed to load the image file."));
-        m_renderButton->setEnabled(true);
+        m_previewButton->setEnabled(true);
         m_progressBar->setVisible(false);
         return;
     }
@@ -326,7 +341,7 @@ void MainWindow::onRenderClicked() {
                "For best results, use a high-quality PNG image.\n\n"
                "Continue anyway?"));
         if (reply != QMessageBox::Yes) {
-            m_renderButton->setEnabled(true);
+            m_previewButton->setEnabled(true);
             m_progressBar->setVisible(false);
             return;
         }
@@ -362,21 +377,23 @@ void MainWindow::onRenderClicked() {
 
     m_meshGenerator->setConfig(config);
 
-    // Invert image for lithophane and flip vertically for correct orientation
-    // (so that the top of the image is at the top of the lithophane, 
-    // with stabilizers at the bottom)
-    QImage image = result->image.mirrored(false, true);  // Flip vertically
+    // Apply flip based on user preference, then invert for lithophane
+    QImage image = result->image;
+    if (m_flipVerticalCheckbox->isChecked()) {
+        image = image.mirrored(false, true);  // Flip vertically
+    }
     image.invertPixels();
 
     // Generate mesh
     auto generatedMesh = m_meshGenerator->generate(image, [this](int current, int total) {
-        m_progressBar->setValue(10 + (current * 70) / total);
+        m_progressBar->setValue(10 + (current * 80) / total);
         QApplication::processEvents();
     });
 
     m_currentMesh = generatedMesh;
+    m_meshReady = true;
 
-    m_progressBar->setValue(80);
+    m_progressBar->setValue(95);
     m_statusLabel->setText(tr("Updating preview..."));
     QApplication::processEvents();
 
@@ -385,17 +402,36 @@ void MainWindow::onRenderClicked() {
     m_previewWidget->setMesh(std::move(generatedMesh));
 #endif
 
-    m_progressBar->setValue(90);
+    m_progressBar->setValue(100);
+    m_progressBar->setVisible(false);
+    m_previewButton->setEnabled(true);
+    m_exportButton->setEnabled(true);
+    m_statusLabel->setText(tr("Preview ready: %1 triangles. Click Export when satisfied.")
+        .arg(m_currentMesh.size() / 3));
+}
+
+void MainWindow::onExportClicked() {
+    if (!m_meshReady || m_currentMesh.isEmpty()) {
+        QMessageBox::warning(this, tr("No mesh"),
+            tr("Please generate a preview first."));
+        return;
+    }
+
     m_statusLabel->setText(tr("Exporting..."));
     QApplication::processEvents();
 
-    // Export
     doExport();
 
-    m_progressBar->setValue(100);
-    m_progressBar->setVisible(false);
-    m_renderButton->setEnabled(true);
     m_statusLabel->setText(tr("Export completed: %1 triangles").arg(m_currentMesh.size() / 3));
+}
+
+void MainWindow::onFlipChanged(bool /*checked*/) {
+    // Invalidate the current mesh - user should re-preview
+    if (m_meshReady) {
+        m_meshReady = false;
+        m_exportButton->setEnabled(false);
+        m_statusLabel->setText(tr("Flip changed. Click Preview to regenerate."));
+    }
 }
 
 void MainWindow::doExport() {

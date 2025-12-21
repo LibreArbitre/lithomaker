@@ -11,6 +11,7 @@
 #include <QMainWindow>
 #include <QProgressBar>
 #include <QLabel>
+#include <QCheckBox>
 #include <memory>
 
 #include "mesh/meshgenerator.h"
@@ -46,10 +47,12 @@ protected:
     void closeEvent(QCloseEvent* event) override;
 
 private slots:
-    void onRenderClicked();
+    void onPreviewClicked();
+    void onExportClicked();
     void onInputFileSelect();
     void onOutputFileSelect();
     void onExportFormatChanged(int index);
+    void onFlipChanged(bool checked);
     void showPreferences();
     void showAbout();
     void updatePreview();
@@ -73,7 +76,9 @@ private:
     QLineEdit* m_outputLineEdit{nullptr};
     QPushButton* m_outputButton{nullptr};
     QComboBox* m_exportFormatCombo{nullptr};
-    QPushButton* m_renderButton{nullptr};
+    QCheckBox* m_flipVerticalCheckbox{nullptr};
+    QPushButton* m_previewButton{nullptr};
+    QPushButton* m_exportButton{nullptr};
     QProgressBar* m_progressBar{nullptr};
     QLabel* m_statusLabel{nullptr};
 #ifndef BUILD_WASM
@@ -83,6 +88,7 @@ private:
     // Mesh generation
     std::unique_ptr<MeshGenerator> m_meshGenerator;
     QList<QVector3D> m_currentMesh;
+    bool m_meshReady{false};
 };
 
 } // namespace LithoMaker
