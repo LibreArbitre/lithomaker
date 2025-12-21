@@ -372,153 +372,245 @@ void MeshGenerator::generateStabilizers(float width, float height) {
 void MeshGenerator::addSingleStabilizer(float x, float stabHeight, float depth, 
                                         float minThickness, float totalThickness, float zDelta) {
     const float stabWidth = std::min(m_border, 4.0f);
-    const float h = stabHeight;  // height of the stabilizer
+    const float h = stabHeight;  // height of the stabilizer foot
     
-    // Front stabilizer (positive Z direction)
-    float z = totalThickness - minThickness;
+    // When detachable (zDelta == 0, permanentStabilizers == false):
+    // Create a thin necking connection at the top for easy break-off
+    const bool detachable = (zDelta < 0.5f);  // permanentStabilizers=true sets zDelta=1
+    const float neckWidth = detachable ? 0.6f : 0.0f;  // ~1-2 extrusion lines
+    const float neckHeight = detachable ? 1.5f : 0.0f; // Height of the weak zone
     
-    // Front face - left side
-    m_mesh.append(QVector3D(x, 0, z + 1 - zDelta));
-    m_mesh.append(QVector3D(x, 0, z + depth));
-    m_mesh.append(QVector3D(x, h, z + 3));
+    // ==== FRONT STABILIZER (positive Z direction) ====
+    float z1 = totalThickness - minThickness;  // Base Z (attachment to frame)
+    float z2 = z1 + depth;                      // Front Z (tip of the foot)
     
-    m_mesh.append(QVector3D(x, h, z + 3));
-    m_mesh.append(QVector3D(x, h, z + 1 - zDelta));
-    m_mesh.append(QVector3D(x, h - 1, z + 1 - zDelta));
+    if (detachable) {
+        // Create geometry with necking at the top
+        // The neck is at y=h, connecting to the frame
+        float neckZ1 = z1;
+        float neckZ2 = z1 + neckWidth;  // Thin neck
+        float bodyTop = h - neckHeight; // Main body ends before the neck
+        
+        // Main body (larger wedge that stops before the frame)
+        // Left face (triangle - main body)
+        m_mesh.append(QVector3D(x, 0, z1));
+        m_mesh.append(QVector3D(x, 0, z2));
+        m_mesh.append(QVector3D(x, bodyTop, z1 + neckWidth));
+        
+        // Right face (triangle - main body)
+        m_mesh.append(QVector3D(x + stabWidth, 0, z2));
+        m_mesh.append(QVector3D(x + stabWidth, 0, z1));
+        m_mesh.append(QVector3D(x + stabWidth, bodyTop, z1 + neckWidth));
+        
+        // Bottom face
+        m_mesh.append(QVector3D(x, 0, z1));
+        m_mesh.append(QVector3D(x + stabWidth, 0, z1));
+        m_mesh.append(QVector3D(x + stabWidth, 0, z2));
+        m_mesh.append(QVector3D(x, 0, z1));
+        m_mesh.append(QVector3D(x + stabWidth, 0, z2));
+        m_mesh.append(QVector3D(x, 0, z2));
+        
+        // Sloped front face (main body)
+        m_mesh.append(QVector3D(x, 0, z2));
+        m_mesh.append(QVector3D(x + stabWidth, 0, z2));
+        m_mesh.append(QVector3D(x + stabWidth, bodyTop, z1 + neckWidth));
+        m_mesh.append(QVector3D(x, 0, z2));
+        m_mesh.append(QVector3D(x + stabWidth, bodyTop, z1 + neckWidth));
+        m_mesh.append(QVector3D(x, bodyTop, z1 + neckWidth));
+        
+        // Neck section (thin connection to frame)
+        // Left face of neck
+        m_mesh.append(QVector3D(x, bodyTop, z1));
+        m_mesh.append(QVector3D(x, bodyTop, z1 + neckWidth));
+        m_mesh.append(QVector3D(x, h, z1));
+        
+        // Right face of neck
+        m_mesh.append(QVector3D(x + stabWidth, bodyTop, z1 + neckWidth));
+        m_mesh.append(QVector3D(x + stabWidth, bodyTop, z1));
+        m_mesh.append(QVector3D(x + stabWidth, h, z1));
+        
+        // Front face of neck (narrow)
+        m_mesh.append(QVector3D(x, bodyTop, z1 + neckWidth));
+        m_mesh.append(QVector3D(x + stabWidth, bodyTop, z1 + neckWidth));
+        m_mesh.append(QVector3D(x + stabWidth, h, z1));
+        m_mesh.append(QVector3D(x, bodyTop, z1 + neckWidth));
+        m_mesh.append(QVector3D(x + stabWidth, h, z1));
+        m_mesh.append(QVector3D(x, h, z1));
+        
+        // Back face of neck (attached to frame)
+        m_mesh.append(QVector3D(x + stabWidth, bodyTop, z1));
+        m_mesh.append(QVector3D(x, bodyTop, z1));
+        m_mesh.append(QVector3D(x, h, z1));
+        m_mesh.append(QVector3D(x + stabWidth, bodyTop, z1));
+        m_mesh.append(QVector3D(x, h, z1));
+        m_mesh.append(QVector3D(x + stabWidth, h, z1));
+        
+        // Bottom of neck (top of body)
+        m_mesh.append(QVector3D(x, bodyTop, z1));
+        m_mesh.append(QVector3D(x + stabWidth, bodyTop, z1));
+        m_mesh.append(QVector3D(x + stabWidth, bodyTop, z1 + neckWidth));
+        m_mesh.append(QVector3D(x, bodyTop, z1));
+        m_mesh.append(QVector3D(x + stabWidth, bodyTop, z1 + neckWidth));
+        m_mesh.append(QVector3D(x, bodyTop, z1 + neckWidth));
+        
+        // Back face of main body
+        m_mesh.append(QVector3D(x + stabWidth, 0, z1));
+        m_mesh.append(QVector3D(x, 0, z1));
+        m_mesh.append(QVector3D(x, bodyTop, z1));
+        m_mesh.append(QVector3D(x + stabWidth, 0, z1));
+        m_mesh.append(QVector3D(x, bodyTop, z1));
+        m_mesh.append(QVector3D(x + stabWidth, bodyTop, z1));
+    } else {
+        // Permanent stabilizers - simple solid wedge
+        // Left face (triangle)
+        m_mesh.append(QVector3D(x, 0, z1));
+        m_mesh.append(QVector3D(x, 0, z2));
+        m_mesh.append(QVector3D(x, h, z1));
+        
+        // Right face (triangle)
+        m_mesh.append(QVector3D(x + stabWidth, 0, z2));
+        m_mesh.append(QVector3D(x + stabWidth, 0, z1));
+        m_mesh.append(QVector3D(x + stabWidth, h, z1));
+        
+        // Bottom face
+        m_mesh.append(QVector3D(x, 0, z1));
+        m_mesh.append(QVector3D(x + stabWidth, 0, z1));
+        m_mesh.append(QVector3D(x + stabWidth, 0, z2));
+        m_mesh.append(QVector3D(x, 0, z1));
+        m_mesh.append(QVector3D(x + stabWidth, 0, z2));
+        m_mesh.append(QVector3D(x, 0, z2));
+        
+        // Back face (attached to frame)
+        m_mesh.append(QVector3D(x + stabWidth, 0, z1));
+        m_mesh.append(QVector3D(x, 0, z1));
+        m_mesh.append(QVector3D(x, h, z1));
+        m_mesh.append(QVector3D(x + stabWidth, 0, z1));
+        m_mesh.append(QVector3D(x, h, z1));
+        m_mesh.append(QVector3D(x + stabWidth, h, z1));
+        
+        // Sloped front face
+        m_mesh.append(QVector3D(x, 0, z2));
+        m_mesh.append(QVector3D(x + stabWidth, 0, z2));
+        m_mesh.append(QVector3D(x + stabWidth, h, z1));
+        m_mesh.append(QVector3D(x, 0, z2));
+        m_mesh.append(QVector3D(x + stabWidth, h, z1));
+        m_mesh.append(QVector3D(x, h, z1));
+    }
     
-    m_mesh.append(QVector3D(x, h, z + 3));
-    m_mesh.append(QVector3D(x, h - 1, z + 1 - zDelta));
-    m_mesh.append(QVector3D(x, 0, z + 1 - zDelta));
+    // ==== BACK STABILIZER (negative Z direction) ====
+    z1 = -minThickness;        // Base Z (attachment to frame)
+    z2 = z1 - depth;           // Back Z (tip of the foot)
     
-    // Front face - right side
-    m_mesh.append(QVector3D(x + stabWidth, h, z + 3));
-    m_mesh.append(QVector3D(x + stabWidth, 0, z + depth));
-    m_mesh.append(QVector3D(x + stabWidth, 0, z + 1 - zDelta));
-    
-    m_mesh.append(QVector3D(x + stabWidth, h - 1, z + 1 - zDelta));
-    m_mesh.append(QVector3D(x + stabWidth, h, z + 1 - zDelta));
-    m_mesh.append(QVector3D(x + stabWidth, h, z + 3));
-    
-    m_mesh.append(QVector3D(x + stabWidth, 0, z + 1 - zDelta));
-    m_mesh.append(QVector3D(x + stabWidth, h - 1, z + 1 - zDelta));
-    m_mesh.append(QVector3D(x + stabWidth, h, z + 3));
-    
-    // Top faces
-    m_mesh.append(QVector3D(x + 1, h, z + 1 - zDelta));
-    m_mesh.append(QVector3D(x, h, z + 1 - zDelta));
-    m_mesh.append(QVector3D(x, h, z + 3));
-    
-    m_mesh.append(QVector3D(x, h, z + 3));
-    m_mesh.append(QVector3D(x + stabWidth, h, z + 3));
-    m_mesh.append(QVector3D(x + stabWidth, h, z + 1 - zDelta));
-    
-    m_mesh.append(QVector3D(x + stabWidth - 1, h, z + 1 - zDelta));
-    m_mesh.append(QVector3D(x + 1, h, z + 1 - zDelta));
-    m_mesh.append(QVector3D(x, h, z + 3));
-    
-    m_mesh.append(QVector3D(x, h, z + 3));
-    m_mesh.append(QVector3D(x + stabWidth, h, z + 1 - zDelta));
-    m_mesh.append(QVector3D(x + stabWidth - 1, h, z + 1 - zDelta));
-    
-    // Bottom face
-    m_mesh.append(QVector3D(x, 0, z + depth));
-    m_mesh.append(QVector3D(x, 0, z + 1 - zDelta));
-    m_mesh.append(QVector3D(x + stabWidth, 0, z + 1 - zDelta));
-    
-    m_mesh.append(QVector3D(x, 0, z + depth));
-    m_mesh.append(QVector3D(x + stabWidth, 0, z + 1 - zDelta));
-    m_mesh.append(QVector3D(x + stabWidth, 0, z + depth));
-    
-    // Sloped front face (triangular)
-    m_mesh.append(QVector3D(x, h, z + 3));
-    m_mesh.append(QVector3D(x, 0, z + depth));
-    m_mesh.append(QVector3D(x + stabWidth, 0, z + depth));
-    
-    m_mesh.append(QVector3D(x, h, z + 3));
-    m_mesh.append(QVector3D(x + stabWidth, 0, z + depth));
-    m_mesh.append(QVector3D(x + stabWidth, h, z + 3));
-    
-    // Inner connection faces
-    m_mesh.append(QVector3D(x + 1, h - 1, z + 1 - zDelta));
-    m_mesh.append(QVector3D(x + 1, h, z + 1 - zDelta));
-    m_mesh.append(QVector3D(x + stabWidth - 1, h, z + 1 - zDelta));
-    
-    m_mesh.append(QVector3D(x + 1, h - 1, z + 1 - zDelta));
-    m_mesh.append(QVector3D(x + stabWidth - 1, h, z + 1 - zDelta));
-    m_mesh.append(QVector3D(x + stabWidth - 1, h - 1, z + 1 - zDelta));
-    
-    // Back stabilizer (negative Z direction)
-    z = -minThickness;
-    
-    // Back face - right side
-    m_mesh.append(QVector3D(x + stabWidth, 0, z - 1 + zDelta));
-    m_mesh.append(QVector3D(x + stabWidth, 0, z - depth));
-    m_mesh.append(QVector3D(x + stabWidth, h, z - 3));
-    
-    m_mesh.append(QVector3D(x + stabWidth, h, z - 3));
-    m_mesh.append(QVector3D(x + stabWidth, h, z - 1 + zDelta));
-    m_mesh.append(QVector3D(x + stabWidth, h - 1, z - 1 + zDelta));
-    
-    m_mesh.append(QVector3D(x + stabWidth, h, z - 3));
-    m_mesh.append(QVector3D(x + stabWidth, h - 1, z - 1 + zDelta));
-    m_mesh.append(QVector3D(x + stabWidth, 0, z - 1 + zDelta));
-    
-    // Back face - left side
-    m_mesh.append(QVector3D(x, h, z - 3));
-    m_mesh.append(QVector3D(x, 0, z - depth));
-    m_mesh.append(QVector3D(x, 0, z - 1 + zDelta));
-    
-    m_mesh.append(QVector3D(x, h - 1, z - 1 + zDelta));
-    m_mesh.append(QVector3D(x, h, z - 1 + zDelta));
-    m_mesh.append(QVector3D(x, h, z - 3));
-    
-    m_mesh.append(QVector3D(x, 0, z - 1 + zDelta));
-    m_mesh.append(QVector3D(x, h - 1, z - 1 + zDelta));
-    m_mesh.append(QVector3D(x, h, z - 3));
-    
-    // Back top faces
-    m_mesh.append(QVector3D(x + stabWidth - 1, h, z - 1 + zDelta));
-    m_mesh.append(QVector3D(x + stabWidth, h, z - 1 + zDelta));
-    m_mesh.append(QVector3D(x + stabWidth, h, z - 3));
-    
-    m_mesh.append(QVector3D(x + stabWidth, h, z - 3));
-    m_mesh.append(QVector3D(x, h, z - 3));
-    m_mesh.append(QVector3D(x, h, z - 1 + zDelta));
-    
-    m_mesh.append(QVector3D(x + 1, h, z - 1 + zDelta));
-    m_mesh.append(QVector3D(x + stabWidth - 1, h, z - 1 + zDelta));
-    m_mesh.append(QVector3D(x + stabWidth, h, z - 3));
-    
-    m_mesh.append(QVector3D(x + stabWidth, h, z - 3));
-    m_mesh.append(QVector3D(x, h, z - 1 + zDelta));
-    m_mesh.append(QVector3D(x + 1, h, z - 1 + zDelta));
-    
-    // Back bottom face
-    m_mesh.append(QVector3D(x + stabWidth, 0, z - depth));
-    m_mesh.append(QVector3D(x + stabWidth, 0, z - 1 + zDelta));
-    m_mesh.append(QVector3D(x, 0, z - 1 + zDelta));
-    
-    m_mesh.append(QVector3D(x + stabWidth, 0, z - depth));
-    m_mesh.append(QVector3D(x, 0, z - 1 + zDelta));
-    m_mesh.append(QVector3D(x, 0, z - depth));
-    
-    // Back sloped face
-    m_mesh.append(QVector3D(x + stabWidth, h, z - 3));
-    m_mesh.append(QVector3D(x + stabWidth, 0, z - depth));
-    m_mesh.append(QVector3D(x, 0, z - depth));
-    
-    m_mesh.append(QVector3D(x + stabWidth, h, z - 3));
-    m_mesh.append(QVector3D(x, 0, z - depth));
-    m_mesh.append(QVector3D(x, h, z - 3));
-    
-    // Back inner faces
-    m_mesh.append(QVector3D(x + stabWidth - 1, h - 1, z - 1 + zDelta));
-    m_mesh.append(QVector3D(x + stabWidth - 1, h, z - 1 + zDelta));
-    m_mesh.append(QVector3D(x + 1, h, z - 1 + zDelta));
-    
-    m_mesh.append(QVector3D(x + stabWidth - 1, h - 1, z - 1 + zDelta));
-    m_mesh.append(QVector3D(x + 1, h, z - 1 + zDelta));
-    m_mesh.append(QVector3D(x + 1, h - 1, z - 1 + zDelta));
+    if (detachable) {
+        float neckZ1 = z1;
+        float neckZ2 = z1 - neckWidth;
+        float bodyTop = h - neckHeight;
+        
+        // Main body
+        // Right face
+        m_mesh.append(QVector3D(x + stabWidth, 0, z1));
+        m_mesh.append(QVector3D(x + stabWidth, 0, z2));
+        m_mesh.append(QVector3D(x + stabWidth, bodyTop, z1 - neckWidth));
+        
+        // Left face
+        m_mesh.append(QVector3D(x, 0, z2));
+        m_mesh.append(QVector3D(x, 0, z1));
+        m_mesh.append(QVector3D(x, bodyTop, z1 - neckWidth));
+        
+        // Bottom face
+        m_mesh.append(QVector3D(x + stabWidth, 0, z1));
+        m_mesh.append(QVector3D(x, 0, z1));
+        m_mesh.append(QVector3D(x, 0, z2));
+        m_mesh.append(QVector3D(x + stabWidth, 0, z1));
+        m_mesh.append(QVector3D(x, 0, z2));
+        m_mesh.append(QVector3D(x + stabWidth, 0, z2));
+        
+        // Sloped back face
+        m_mesh.append(QVector3D(x + stabWidth, 0, z2));
+        m_mesh.append(QVector3D(x, 0, z2));
+        m_mesh.append(QVector3D(x, bodyTop, z1 - neckWidth));
+        m_mesh.append(QVector3D(x + stabWidth, 0, z2));
+        m_mesh.append(QVector3D(x, bodyTop, z1 - neckWidth));
+        m_mesh.append(QVector3D(x + stabWidth, bodyTop, z1 - neckWidth));
+        
+        // Neck section
+        // Right face of neck
+        m_mesh.append(QVector3D(x + stabWidth, bodyTop, z1));
+        m_mesh.append(QVector3D(x + stabWidth, bodyTop, z1 - neckWidth));
+        m_mesh.append(QVector3D(x + stabWidth, h, z1));
+        
+        // Left face of neck
+        m_mesh.append(QVector3D(x, bodyTop, z1 - neckWidth));
+        m_mesh.append(QVector3D(x, bodyTop, z1));
+        m_mesh.append(QVector3D(x, h, z1));
+        
+        // Back face of neck
+        m_mesh.append(QVector3D(x + stabWidth, bodyTop, z1 - neckWidth));
+        m_mesh.append(QVector3D(x, bodyTop, z1 - neckWidth));
+        m_mesh.append(QVector3D(x, h, z1));
+        m_mesh.append(QVector3D(x + stabWidth, bodyTop, z1 - neckWidth));
+        m_mesh.append(QVector3D(x, h, z1));
+        m_mesh.append(QVector3D(x + stabWidth, h, z1));
+        
+        // Front face of neck (attached to frame)
+        m_mesh.append(QVector3D(x, bodyTop, z1));
+        m_mesh.append(QVector3D(x + stabWidth, bodyTop, z1));
+        m_mesh.append(QVector3D(x + stabWidth, h, z1));
+        m_mesh.append(QVector3D(x, bodyTop, z1));
+        m_mesh.append(QVector3D(x + stabWidth, h, z1));
+        m_mesh.append(QVector3D(x, h, z1));
+        
+        // Bottom of neck
+        m_mesh.append(QVector3D(x + stabWidth, bodyTop, z1));
+        m_mesh.append(QVector3D(x, bodyTop, z1));
+        m_mesh.append(QVector3D(x, bodyTop, z1 - neckWidth));
+        m_mesh.append(QVector3D(x + stabWidth, bodyTop, z1));
+        m_mesh.append(QVector3D(x, bodyTop, z1 - neckWidth));
+        m_mesh.append(QVector3D(x + stabWidth, bodyTop, z1 - neckWidth));
+        
+        // Front face of main body
+        m_mesh.append(QVector3D(x, 0, z1));
+        m_mesh.append(QVector3D(x + stabWidth, 0, z1));
+        m_mesh.append(QVector3D(x + stabWidth, bodyTop, z1));
+        m_mesh.append(QVector3D(x, 0, z1));
+        m_mesh.append(QVector3D(x + stabWidth, bodyTop, z1));
+        m_mesh.append(QVector3D(x, bodyTop, z1));
+    } else {
+        // Permanent stabilizers - simple solid wedge
+        // Right face
+        m_mesh.append(QVector3D(x + stabWidth, 0, z1));
+        m_mesh.append(QVector3D(x + stabWidth, 0, z2));
+        m_mesh.append(QVector3D(x + stabWidth, h, z1));
+        
+        // Left face
+        m_mesh.append(QVector3D(x, 0, z2));
+        m_mesh.append(QVector3D(x, 0, z1));
+        m_mesh.append(QVector3D(x, h, z1));
+        
+        // Bottom face
+        m_mesh.append(QVector3D(x + stabWidth, 0, z1));
+        m_mesh.append(QVector3D(x, 0, z1));
+        m_mesh.append(QVector3D(x, 0, z2));
+        m_mesh.append(QVector3D(x + stabWidth, 0, z1));
+        m_mesh.append(QVector3D(x, 0, z2));
+        m_mesh.append(QVector3D(x + stabWidth, 0, z2));
+        
+        // Front face (attached to frame)
+        m_mesh.append(QVector3D(x, 0, z1));
+        m_mesh.append(QVector3D(x + stabWidth, 0, z1));
+        m_mesh.append(QVector3D(x + stabWidth, h, z1));
+        m_mesh.append(QVector3D(x, 0, z1));
+        m_mesh.append(QVector3D(x + stabWidth, h, z1));
+        m_mesh.append(QVector3D(x, h, z1));
+        
+        // Sloped back face
+        m_mesh.append(QVector3D(x + stabWidth, 0, z2));
+        m_mesh.append(QVector3D(x, 0, z2));
+        m_mesh.append(QVector3D(x, h, z1));
+        m_mesh.append(QVector3D(x + stabWidth, 0, z2));
+        m_mesh.append(QVector3D(x, h, z1));
+        m_mesh.append(QVector3D(x + stabWidth, h, z1));
+    }
 }
 
 void MeshGenerator::generateHangers(float width, float height) {
