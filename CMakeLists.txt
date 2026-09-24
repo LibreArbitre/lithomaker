@@ -133,12 +133,21 @@ set(ALL_HEADERS
     ${UI_HEADERS}
 )
 
-# Create executable
-add_executable(${PROJECT_NAME}
-    ${ALL_SOURCES}
-    ${ALL_HEADERS}
-    ${RESOURCES}
-)
+# Create executable. Qt's WASM target finalizer also creates the matching HTML
+# shell and qtloader.js used to bootstrap the application in a browser.
+if(BUILD_WASM)
+    qt_add_executable(${PROJECT_NAME}
+        ${ALL_SOURCES}
+        ${ALL_HEADERS}
+        ${RESOURCES}
+    )
+else()
+    add_executable(${PROJECT_NAME}
+        ${ALL_SOURCES}
+        ${ALL_HEADERS}
+        ${RESOURCES}
+    )
+endif()
 
 # Include directories
 target_include_directories(${PROJECT_NAME} PRIVATE

@@ -99,26 +99,13 @@ jobs:
         echo "=== Build directory recursive ==="
         find build -type f \( -name "*.html" -o -name "*.wasm" -o -name "*.js" -o -name "*.data" \) | head -100
         
-        # Copy WASM and JS files from build directory
-        find build -name "*.wasm" -exec cp {} deploy/ \;
-        find build -name "*.js" -exec cp {} deploy/ \;
-        find build -name "*.data" -exec cp {} deploy/ \; 2>/dev/null || true
-        
-        # Copy qtloader.js from Qt WASM installation if not already in build
-        if [ ! -f deploy/qtloader.js ]; then
-          echo "Looking for qtloader.js..."
-          QTLOADER=$(find "$QT_WASM_DIR" -name "qtloader.js" 2>/dev/null | head -1)
-          if [ -n "$QTLOADER" ]; then
-            echo "Found qtloader.js at: $QTLOADER"
-            cp "$QTLOADER" deploy/
-          else
-            echo "ERROR: qtloader.js not found!"
-            exit 1
-          fi
-        fi
-        
-        # Use our custom index.html with createQtAppInstance and qtContainerElements.
-        cp web/index.html deploy/
+        # Deploy the HTML shell and loader generated for this Qt WASM target.
+        # This keeps the page bootstrap in sync with the Qt version used to build.
+        cp build/LithoMaker.html deploy/index.html
+        cp build/qtloader.js deploy/
+        cp build/qtlogo.svg deploy/
+        cp build/LithoMaker.js deploy/
+        cp build/LithoMaker.wasm deploy/
         cp web/style.css deploy/
         cp default.png deploy/favicon.png 2>/dev/null || true
         
@@ -127,7 +114,7 @@ jobs:
         ls -la deploy/
         
         echo "=== Verifying required files ==="
-        for file in LithoMaker.wasm LithoMaker.js qtloader.js index.html; do
+        for file in LithoMaker.wasm LithoMaker.js qtloader.js qtlogo.svg index.html; do
           if [ -f "deploy/$file" ]; then
             echo "✓ $file found ($(stat -c%s "deploy/$file") bytes)"
           else
