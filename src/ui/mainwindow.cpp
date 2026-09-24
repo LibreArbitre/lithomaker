@@ -33,6 +33,7 @@
 #include <QMenuBar>
 #include <QMenu>
 #include <QAction>
+#include <QFile>
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QMimeData>
@@ -41,6 +42,7 @@
 #include <QDebug>
 #include <QApplication>
 #include <QStatusBar>
+#include <QUuid>
 #include <utility>
 
 namespace LithoMaker {
@@ -68,6 +70,9 @@ MainWindow::MainWindow(QWidget* parent)
 
 MainWindow::~MainWindow() {
     saveSettings();
+#ifdef BUILD_WASM
+    if (!m_wasmInputFilePath.isEmpty()) QFile::remove(m_wasmInputFilePath);
+#endif
 }
 
 void MainWindow::createWidgets() {
@@ -123,6 +128,9 @@ void MainWindow::createWidgets() {
     auto* inputLayout = new QHBoxLayout();
     m_inputLineEdit = new QLineEdit();
     m_inputLineEdit->setPlaceholderText(tr("Drag & drop or click to select..."));
+#ifdef BUILD_WASM
+    m_inputLineEdit->setReadOnly(true);
+#endif
     connect(m_inputLineEdit, &QLineEdit::textChanged, this, [this] {
         invalidateMesh(tr("Input image changed. Click Preview to regenerate."));
     });
@@ -140,6 +148,10 @@ void MainWindow::createWidgets() {
     m_outputButton = new QPushButton(tr("..."));
     m_outputButton->setMaximumWidth(40);
     connect(m_outputButton, &QPushButton::clicked, this, &MainWindow::onOutputFileSelect);
+#ifdef BUILD_WASM
+    m_outputButton->hide();
+    m_outputLineEdit->setPlaceholderText(tr("Downloaded file name"));
+#endif
     outputLayout->addWidget(m_outputLineEdit);
     outputLayout->addWidget(m_outputButton);
     controlsLayout->addLayout(outputLayout);
@@ -151,7 +163,9 @@ void MainWindow::createWidgets() {
     m_exportFormatCombo->addItem("STL (Binary)", "stl_bin");
     m_exportFormatCombo->addItem("STL (ASCII)", "stl_ascii");
     m_exportFormatCombo->addItem("OBJ", "obj");
+#ifndef BUILD_WASM
     m_exportFormatCombo->addItem("3MF", "3mf");
+#endif
     connect(m_exportFormatCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), 
             this, &MainWindow::onExportFormatChanged);
     formatLayout->addWidget(m_exportFormatCombo);
@@ -240,7 +254,12 @@ void MainWindow::loadSettings() {
     auto& settings = Settings::instance();
     
     restoreGeometry(settings.value("main/geometry").toByteArray());
+#ifdef BUILD_WASM
+    // Browser file selections live in the temporary WASM filesystem only.
+    m_inputLineEdit->clear();
+#else
     m_inputLineEdit->setText(settings.value("main/inputFile", "examples/hummingbird.png").toString());
+#endif
     m_outputLineEdit->setText(settings.value("main/outputFile", "lithophane.stl").toString());
     m_exportFormatCombo->setCurrentIndex(settings.value("main/exportFormat", 0).toInt());
 }
@@ -292,15 +311,52 @@ void MainWindow::setInputFile(const QString& path) {
 
 void MainWindow::onInputFileSelect() {
     QString filter = ImageLoader::supportedFormatsFilter();
+#ifdef BUILD_WASM
+    QFileDialog::getOpenFileContent(filter, [this](const QString& fileName, const QByteArray& fileContent) {
+        if (fileName.isEmpty()) return;
+        if (fileContent.isEmpty()) {
+            QMessageBox::warning(this, tr("Load failed"), tr("The selected image is empty."));
+            return;
+        }
+
+        const QString extension = QFileInfo(fileName).suffix().toLower();
+        const QString temporaryPath = QDir::temp().filePath(
+            "lithomaker-input-" + QUuid::createUuid().toString(QUuid::WithoutBraces) + "." + extension);
+        QFile input(temporaryPath);
+        if (!input.open(QIODevice::WriteOnly)) {
+            QMessageBox::warning(this, tr("Load failed"), tr("Could not read the selected image."));
+            return;
+        }
+        const bool saved = input.write(fileContent) == fileContent.size() && input.flush() &&
+                           input.error() == QFileDevice::NoError;
+        input.close();
+        if (!saved) {
+            QFile::remove(temporaryPath);
+            QMessageBox::warning(this, tr("Load failed"), tr("Could not read the selected image."));
+            return;
+        }
+
+        if (!m_wasmInputFilePath.isEmpty()) QFile::remove(m_wasmInputFilePath);
+        m_wasmInputFilePath = temporaryPath;
+        m_inputLineEdit->setText(QFileInfo(fileName).fileName());
+        m_statusLabel->setText(tr("Loaded: %1. Click Preview to generate the mesh.")
+            .arg(QFileInfo(fileName).fileName()));
+    });
+#else
     QString startDir = QFileInfo(m_inputLineEdit->text()).absolutePath();
     
     QString file = QFileDialog::getOpenFileName(this, tr("Select input image"), startDir, filter);
     if (!file.isEmpty()) {
         setInputFile(file);
     }
+#endif
 }
 
 void MainWindow::onOutputFileSelect() {
+#ifdef BUILD_WASM
+    // The browser download prompt is shown after a successful export.
+    return;
+#else
     QString formats = "STL Files (*.stl);;OBJ Files (*.obj);;3MF Files (*.3mf);;All Files (*)";
     QString startDir = QFileInfo(m_outputLineEdit->text()).absolutePath();
     
@@ -308,6 +364,7 @@ void MainWindow::onOutputFileSelect() {
     if (!file.isEmpty()) {
         m_outputLineEdit->setText(file);
     }
+#endif
 }
 
 void MainWindow::onExportFormatChanged(int index) {
@@ -326,7 +383,11 @@ void MainWindow::onExportFormatChanged(int index) {
 }
 
 void MainWindow::onPreviewClicked() {
+#ifdef BUILD_WASM
+    QString inputFile = m_wasmInputFilePath;
+#else
     QString inputFile = m_inputLineEdit->text();
+#endif
     const quint64 inputRevision = m_meshInputRevision;
     
     if (!QFileInfo::exists(inputFile)) {
@@ -475,6 +536,14 @@ void MainWindow::invalidateMesh(const QString& reason) {
 bool MainWindow::doExport() {
     QString outputFile = m_outputLineEdit->text();
     QString format = m_exportFormatCombo->currentData().toString();
+#ifdef BUILD_WASM
+    QString extension = format == "obj" ? "obj" : "stl";
+    QString downloadName = QFileInfo(outputFile).completeBaseName();
+    if (downloadName.isEmpty()) downloadName = "lithophane";
+    downloadName += "." + extension;
+    outputFile = QDir::temp().filePath(
+        "lithomaker-export-" + QUuid::createUuid().toString(QUuid::WithoutBraces) + "." + extension);
+#endif
 
     std::unique_ptr<Exporter> exporter;
     if (format == "stl_bin") {
@@ -503,9 +572,26 @@ bool MainWindow::doExport() {
         QMessageBox::warning(this, tr("Export failed"), result.errorMessage);
         return false;
     } else {
+#ifdef BUILD_WASM
+        QFile exportedFile(outputFile);
+        if (!exportedFile.open(QIODevice::ReadOnly)) {
+            QMessageBox::warning(this, tr("Export failed"), tr("Could not prepare the file download."));
+            return false;
+        }
+        const QByteArray fileContent = exportedFile.readAll();
+        if (exportedFile.error() != QFileDevice::NoError || fileContent.isEmpty()) {
+            QMessageBox::warning(this, tr("Export failed"), tr("Could not read the exported file."));
+            return false;
+        }
+        QFileDialog::saveFileContent(fileContent, downloadName);
+#endif
         QMessageBox::information(this, tr("Export succeeded"),
             tr("Successfully exported to %1\n\nFile size: %2 KB\nTriangles: %3")
+#ifdef BUILD_WASM
+                .arg(downloadName)
+#else
                 .arg(outputFile)
+#endif
                 .arg(result.bytesWritten / 1024)
                 .arg(m_currentMesh.size() / 3));
     }

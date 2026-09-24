@@ -90,6 +90,9 @@ private:
     QList<QVector3D> m_currentMesh;
     bool m_meshReady{false};
     quint64 m_meshInputRevision{0};
+#ifdef BUILD_WASM
+    QString m_wasmInputFilePath;
+#endif
 };
 
 } // namespace LithoMaker
