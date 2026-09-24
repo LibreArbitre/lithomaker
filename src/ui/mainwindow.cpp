@@ -60,7 +60,9 @@ MainWindow::MainWindow(QWidget* parent)
     // Show preferences on first run
     auto& settings = Settings::instance();
     if (settings.allKeys().isEmpty()) {
+#ifndef BUILD_WASM
         showPreferences();
+#endif
     }
 }
 

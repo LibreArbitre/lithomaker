@@ -120,8 +120,8 @@
         <div id="qt-screen"></div>
     </div>
 
-    <!-- Load the Qt 6.5 WebAssembly module before calling its entry function. -->
-    <script src="LithoMaker.js"></script>
+    <!-- QtLoader supplies the Qt 6.5 module configuration and starts the app. -->
+    <script src="qtloader.js"></script>
     <script>
         (async function () {
             const loadingDiv = document.getElementById('loading');
@@ -143,31 +143,40 @@
             }
 
             try {
-                if (typeof createQtAppInstance !== 'function') {
-                    throw new Error('Qt WebAssembly module not found. LithoMaker.js did not load.');
+                if (typeof QtLoader !== 'function') {
+                    throw new Error('Qt WebAssembly loader not found. qtloader.js did not load.');
                 }
 
-                updateProgress(10, 'Loading Qt libraries...');
-
-                const webglProbe = document.createElement('canvas');
-                if (typeof WebAssembly === 'undefined' ||
-                    !(webglProbe.getContext('webgl') || webglProbe.getContext('experimental-webgl'))) {
-                    throw new Error('This browser needs WebAssembly and WebGL to run LithoMaker.');
-                }
-
-                updateProgress(30, 'Starting the WebAssembly application...');
-
-                await createQtAppInstance({
-                    qtContainerElements: [screen],
-                    onAbort: function (reason) {
-                        showError(`LithoMaker could not start: ${reason}`);
+                const qtLoader = new QtLoader({
+                    containerElements: [screen],
+                    showLoader: function (state) {
+                        updateProgress(50, `Loading application... ${state}`);
+                    },
+                    showCanvas: function () {
+                        updateProgress(100, 'Application loaded!');
+                        setTimeout(() => {
+                            loadingDiv.style.display = 'none';
+                        }, 300);
+                    },
+                    showError: function (message) {
+                        showError(message);
+                        const errorElement = document.createElement('div');
+                        errorElement.hidden = true;
+                        return errorElement;
+                    },
+                    moduleConfig: {
+                        onAbort: function (reason) {
+                            showError(`LithoMaker could not start: ${reason}`);
+                        }
                     }
                 });
 
-                updateProgress(100, 'Application loaded!');
-                setTimeout(() => {
-                    loadingDiv.style.display = 'none';
-                }, 300);
+                if (!qtLoader.canLoadApplication) {
+                    throw new Error('This browser needs WebAssembly and WebGL to run LithoMaker.');
+                }
+
+                updateProgress(10, 'Loading Qt libraries...');
+                qtLoader.loadEmscriptenModule('LithoMaker');
 
             } catch (error) {
                 console.error('Failed to load Qt application:', error);
