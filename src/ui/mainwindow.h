@@ -55,7 +55,6 @@ private slots:
     void onFlipChanged(bool checked);
     void showPreferences();
     void showAbout();
-    void updatePreview();
 
 private:
     void createWidgets();
@@ -63,7 +62,8 @@ private:
     void loadSettings();
     void saveSettings();
     void setInputFile(const QString& path);
-    void doExport();
+    void invalidateMesh(const QString& reason);
+    bool doExport();
 
     // UI widgets
     Slider* m_minThicknessSlider{nullptr};
@@ -89,6 +89,7 @@ private:
     std::unique_ptr<MeshGenerator> m_meshGenerator;
     QList<QVector3D> m_currentMesh;
     bool m_meshReady{false};
+    quint64 m_meshInputRevision{0};
 };
 
 } // namespace LithoMaker

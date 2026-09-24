@@ -8,7 +8,9 @@
 
 #include "objexporter.h"
 
-#include <QFile>
+#include <QFileInfo>
+#include <QLocale>
+#include <QSaveFile>
 #include <QTextStream>
 #include <QDebug>
 #include <QMap>
@@ -25,12 +27,13 @@ ExportResult ObjExporter::exportMesh(const QList<QVector3D>& mesh,
         return {false, QObject::tr("Invalid mesh: vertex count not divisible by 3"), 0};
     }
 
-    QFile file(filePath);
+    QSaveFile file(filePath);
     if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
         return {false, QObject::tr("Cannot open file for writing: ") + file.errorString(), 0};
     }
 
     QTextStream out(&file);
+    out.setLocale(QLocale::c());
     out.setRealNumberNotation(QTextStream::FixedNotation);
     out.setRealNumberPrecision(6);
 
@@ -74,8 +77,15 @@ ExportResult ObjExporter::exportMesh(const QList<QVector3D>& mesh,
             << " " << faceIndices[i + 2] << "\n";
     }
 
-    qint64 written = file.size();
-    file.close();
+    out.flush();
+    if (out.status() != QTextStream::Ok) {
+        return {false, QObject::tr("Failed while writing output file: ") + file.errorString(), 0};
+    }
+
+    if (!file.commit()) {
+        return {false, QObject::tr("Failed while writing output file: ") + file.errorString(), 0};
+    }
+    const qint64 written = QFileInfo(filePath).size();
 
     qInfo() << "Exported OBJ:" << filePath << "(" << written << "bytes," 
             << uniqueVertices.size() << "unique vertices)";

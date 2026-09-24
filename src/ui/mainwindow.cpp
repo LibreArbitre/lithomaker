@@ -88,18 +88,30 @@ void MainWindow::createWidgets() {
 
     thicknessLayout->addWidget(new QLabel(tr("Minimum thickness (mm):")), 0, 0);
     m_minThicknessSlider = new Slider("render", "minThickness", 8, 100, 8, 10);
+    connect(m_minThicknessSlider, &Slider::valueChanged, this, [this] {
+        invalidateMesh(tr("Render settings changed. Click Preview to regenerate."));
+    });
     thicknessLayout->addWidget(m_minThicknessSlider, 0, 1);
 
     thicknessLayout->addWidget(new QLabel(tr("Total thickness (mm):")), 1, 0);
     m_totalThicknessSlider = new Slider("render", "totalThickness", 20, 150, 40, 10);
+    connect(m_totalThicknessSlider, &Slider::valueChanged, this, [this] {
+        invalidateMesh(tr("Render settings changed. Click Preview to regenerate."));
+    });
     thicknessLayout->addWidget(m_totalThicknessSlider, 1, 1);
 
     thicknessLayout->addWidget(new QLabel(tr("Frame border (mm):")), 2, 0);
     m_borderSlider = new Slider("render", "frameBorder", 20, 500, 30, 10);
+    connect(m_borderSlider, &Slider::valueChanged, this, [this] {
+        invalidateMesh(tr("Render settings changed. Click Preview to regenerate."));
+    });
     thicknessLayout->addWidget(m_borderSlider, 2, 1);
 
     thicknessLayout->addWidget(new QLabel(tr("Width (mm):")), 3, 0);
     m_widthSlider = new Slider("render", "width", 200, 4000, 2000, 10);
+    connect(m_widthSlider, &Slider::valueChanged, this, [this] {
+        invalidateMesh(tr("Render settings changed. Click Preview to regenerate."));
+    });
     thicknessLayout->addWidget(m_widthSlider, 3, 1);
 
     controlsLayout->addWidget(thicknessGroup);
@@ -109,6 +121,9 @@ void MainWindow::createWidgets() {
     auto* inputLayout = new QHBoxLayout();
     m_inputLineEdit = new QLineEdit();
     m_inputLineEdit->setPlaceholderText(tr("Drag & drop or click to select..."));
+    connect(m_inputLineEdit, &QLineEdit::textChanged, this, [this] {
+        invalidateMesh(tr("Input image changed. Click Preview to regenerate."));
+    });
     m_inputButton = new QPushButton(tr("..."));
     m_inputButton->setMaximumWidth(40);
     connect(m_inputButton, &QPushButton::clicked, this, &MainWindow::onInputFileSelect);
@@ -269,8 +284,8 @@ void MainWindow::closeEvent(QCloseEvent* event) {
 
 void MainWindow::setInputFile(const QString& path) {
     m_inputLineEdit->setText(path);
-    m_statusLabel->setText(tr("Loaded: %1").arg(QFileInfo(path).fileName()));
-    updatePreview();
+    m_statusLabel->setText(tr("Loaded: %1. Click Preview to generate the mesh.")
+        .arg(QFileInfo(path).fileName()));
 }
 
 void MainWindow::onInputFileSelect() {
@@ -310,6 +325,7 @@ void MainWindow::onExportFormatChanged(int index) {
 
 void MainWindow::onPreviewClicked() {
     QString inputFile = m_inputLineEdit->text();
+    const quint64 inputRevision = m_meshInputRevision;
     
     if (!QFileInfo::exists(inputFile)) {
         QMessageBox::warning(this, tr("File not found"), 
@@ -320,6 +336,10 @@ void MainWindow::onPreviewClicked() {
     m_previewButton->setEnabled(false);
     m_exportButton->setEnabled(false);
     m_meshReady = false;
+    m_currentMesh.clear();
+#ifndef BUILD_WASM
+    m_previewWidget->clear();
+#endif
     m_progressBar->setVisible(true);
     m_progressBar->setValue(0);
     m_statusLabel->setText(tr("Loading image..."));
@@ -390,6 +410,14 @@ void MainWindow::onPreviewClicked() {
         QApplication::processEvents();
     });
 
+    if (inputRevision != m_meshInputRevision) {
+        m_progressBar->setVisible(false);
+        m_previewButton->setEnabled(true);
+        m_exportButton->setEnabled(false);
+        m_statusLabel->setText(tr("Inputs changed during generation. Click Preview to regenerate."));
+        return;
+    }
+
     m_currentMesh = generatedMesh;
     m_meshReady = true;
 
@@ -420,21 +448,29 @@ void MainWindow::onExportClicked() {
     m_statusLabel->setText(tr("Exporting..."));
     QApplication::processEvents();
 
-    doExport();
-
-    m_statusLabel->setText(tr("Export completed: %1 triangles").arg(m_currentMesh.size() / 3));
-}
-
-void MainWindow::onFlipChanged(bool /*checked*/) {
-    // Invalidate the current mesh - user should re-preview
-    if (m_meshReady) {
-        m_meshReady = false;
-        m_exportButton->setEnabled(false);
-        m_statusLabel->setText(tr("Flip changed. Click Preview to regenerate."));
+    if (doExport()) {
+        m_statusLabel->setText(tr("Export completed: %1 triangles").arg(m_currentMesh.size() / 3));
+    } else {
+        m_statusLabel->setText(tr("Export was not completed."));
     }
 }
 
-void MainWindow::doExport() {
+void MainWindow::onFlipChanged(bool /*checked*/) {
+    invalidateMesh(tr("Image orientation changed. Click Preview to regenerate."));
+}
+
+void MainWindow::invalidateMesh(const QString& reason) {
+    ++m_meshInputRevision;
+    m_meshReady = false;
+    m_currentMesh.clear();
+    if (m_exportButton) m_exportButton->setEnabled(false);
+#ifndef BUILD_WASM
+    if (m_previewWidget) m_previewWidget->clear();
+#endif
+    if (m_statusLabel) m_statusLabel->setText(reason);
+}
+
+bool MainWindow::doExport() {
     QString outputFile = m_outputLineEdit->text();
     QString format = m_exportFormatCombo->currentData().toString();
 
@@ -456,13 +492,14 @@ void MainWindow::doExport() {
         auto reply = QMessageBox::question(this, tr("Overwrite?"),
             tr("Output file already exists. Overwrite?"));
         if (reply != QMessageBox::Yes) {
-            return;
+            return false;
         }
     }
 
     auto result = exporter->exportMesh(m_currentMesh, outputFile);
     if (!result.success) {
         QMessageBox::warning(this, tr("Export failed"), result.errorMessage);
+        return false;
     } else {
         QMessageBox::information(this, tr("Export succeeded"),
             tr("Successfully exported to %1\n\nFile size: %2 KB\nTriangles: %3")
@@ -470,16 +507,27 @@ void MainWindow::doExport() {
                 .arg(result.bytesWritten / 1024)
                 .arg(m_currentMesh.size() / 3));
     }
-}
-
-void MainWindow::updatePreview() {
-    // Generate a quick preview if input file exists
-    // This could be done in a background thread for responsiveness
+    return true;
 }
 
 void MainWindow::showPreferences() {
+    auto& settings = Settings::instance();
+    const QStringList meshSettingKeys = {
+        "render/enableStabilizers", "render/permanentStabilizers",
+        "render/stabilizerThreshold", "render/stabilizerHeightFactor",
+        "render/frameSlopeFactor", "render/enableHangers", "render/hangers"
+    };
+    QStringList previousValues;
+    for (const QString& key : meshSettingKeys) previousValues.append(settings.value(key).toString());
+
     ConfigDialog dialog(this);
     dialog.exec();
+
+    QStringList currentValues;
+    for (const QString& key : meshSettingKeys) currentValues.append(settings.value(key).toString());
+    if (previousValues != currentValues) {
+        invalidateMesh(tr("Render settings changed. Click Preview to regenerate."));
+    }
 }
 
 void MainWindow::showAbout() {

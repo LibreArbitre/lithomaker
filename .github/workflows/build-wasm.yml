@@ -117,7 +117,7 @@ jobs:
           fi
         fi
         
-        # Use our custom index.html (uses Qt 6 qtLoad() API)
+        # Use our custom index.html with createQtAppInstance and qtContainerElements.
         cp web/index.html deploy/
         cp web/style.css deploy/
         cp default.png deploy/favicon.png 2>/dev/null || true

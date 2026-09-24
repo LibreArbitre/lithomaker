@@ -8,12 +8,23 @@
 
 #include "stlexporter.h"
 
-#include <QFile>
-#include <QDataStream>
+#include <QSaveFile>
 #include <QDebug>
 #include <cstring>
 
 namespace LithoMaker {
+
+namespace {
+
+bool writeAll(QIODevice& device, const char* data, qint64 size) {
+    return device.write(data, size) == size;
+}
+
+ExportResult writeFailure(const QSaveFile& file) {
+    return {false, QObject::tr("Failed while writing output file: ") + file.errorString(), 0};
+}
+
+} // namespace
 
 StlExporter::StlExporter(StlFormat format)
     : m_format(format)
@@ -39,7 +50,7 @@ ExportResult StlExporter::exportMesh(const QList<QVector3D>& mesh,
 
 ExportResult StlExporter::exportBinary(const QList<QVector3D>& mesh, 
                                         const QString& filePath) {
-    QFile file(filePath);
+    QSaveFile file(filePath);
     if (!file.open(QIODevice::WriteOnly)) {
         return {false, QObject::tr("Cannot open file for writing: ") + file.errorString(), 0};
     }
@@ -48,32 +59,36 @@ ExportResult StlExporter::exportBinary(const QList<QVector3D>& mesh,
     char header[80];
     std::memset(header, 0, 80);
     std::strncpy(header, "LithoMaker Export", 79);
-    file.write(header, 80);
+    if (!writeAll(file, header, 80)) return writeFailure(file);
 
     // Number of triangles (uint32)
     quint32 triangleCount = static_cast<quint32>(mesh.size() / 3);
-    file.write(reinterpret_cast<const char*>(&triangleCount), sizeof(quint32));
+    if (!writeAll(file, reinterpret_cast<const char*>(&triangleCount), sizeof(quint32)))
+        return writeFailure(file);
 
     // Write triangles
     for (int i = 0; i < mesh.size(); i += 3) {
         // Normal vector (not calculated, set to 0)
         float normal[3] = {0.0f, 0.0f, 0.0f};
-        file.write(reinterpret_cast<const char*>(normal), sizeof(float) * 3);
+        if (!writeAll(file, reinterpret_cast<const char*>(normal), sizeof(float) * 3))
+            return writeFailure(file);
 
         // Three vertices
         for (int j = 0; j < 3; ++j) {
             const QVector3D& v = mesh.at(i + j);
             float vertex[3] = {v.x(), v.y(), v.z()};
-            file.write(reinterpret_cast<const char*>(vertex), sizeof(float) * 3);
+            if (!writeAll(file, reinterpret_cast<const char*>(vertex), sizeof(float) * 3))
+                return writeFailure(file);
         }
 
         // Attribute byte count
         quint16 attrByteCount = 0;
-        file.write(reinterpret_cast<const char*>(&attrByteCount), sizeof(quint16));
+        if (!writeAll(file, reinterpret_cast<const char*>(&attrByteCount), sizeof(quint16)))
+            return writeFailure(file);
     }
 
-    qint64 written = file.size();
-    file.close();
+    qint64 written = file.pos();
+    if (!file.commit()) return writeFailure(file);
 
     qInfo() << "Exported binary STL:" << filePath << "(" << written << "bytes," 
             << triangleCount << "triangles)";
@@ -83,16 +98,21 @@ ExportResult StlExporter::exportBinary(const QList<QVector3D>& mesh,
 
 ExportResult StlExporter::exportAscii(const QList<QVector3D>& mesh, 
                                        const QString& filePath) {
-    QFile file(filePath);
+    QSaveFile file(filePath);
     if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
         return {false, QObject::tr("Cannot open file for writing: ") + file.errorString(), 0};
     }
 
-    file.write("solid lithophane\n");
+    auto writeText = [&file](const QString& text) {
+        const QByteArray bytes = text.toLatin1();
+        return writeAll(file, bytes.constData(), bytes.size());
+    };
+
+    if (!writeText(QStringLiteral("solid lithophane\n"))) return writeFailure(file);
 
     for (int i = 0; i < mesh.size(); i += 3) {
-        file.write("facet normal 0.0 0.0 0.0\n");
-        file.write("\touter loop\n");
+        if (!writeText(QStringLiteral("facet normal 0.0 0.0 0.0\n")) ||
+            !writeText(QStringLiteral("\touter loop\n"))) return writeFailure(file);
         
         for (int j = 0; j < 3; ++j) {
             const QVector3D& v = mesh.at(i + j);
@@ -100,17 +120,17 @@ ExportResult StlExporter::exportAscii(const QList<QVector3D>& mesh,
                 .arg(static_cast<double>(v.x()), 0, 'g', 6)
                 .arg(static_cast<double>(v.y()), 0, 'g', 6)
                 .arg(static_cast<double>(v.z()), 0, 'g', 6);
-            file.write(line.toLatin1());
+            if (!writeText(line)) return writeFailure(file);
         }
         
-        file.write("\tendloop\n");
-        file.write("endfacet\n");
+        if (!writeText(QStringLiteral("\tendloop\n")) ||
+            !writeText(QStringLiteral("endfacet\n"))) return writeFailure(file);
     }
 
-    file.write("endsolid\n");
+    if (!writeText(QStringLiteral("endsolid\n"))) return writeFailure(file);
 
-    qint64 written = file.size();
-    file.close();
+    qint64 written = file.pos();
+    if (!file.commit()) return writeFailure(file);
 
     qInfo() << "Exported ASCII STL:" << filePath << "(" << written << "bytes)";
 

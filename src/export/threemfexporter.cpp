@@ -9,11 +9,15 @@
 #include "threemfexporter.h"
 
 #include <QFile>
+#include <QFileInfo>
 #include <QDebug>
 #include <QMap>
 #include <QDir>
+#include <QSaveFile>
+#include <QTemporaryDir>
 #ifndef BUILD_WASM
 #include <QProcess>
+#include <QProcessEnvironment>
 #endif
 
 namespace LithoMaker {
@@ -34,65 +38,101 @@ ExportResult ThreeMfExporter::exportMesh(const QList<QVector3D>& mesh,
         return {false, QObject::tr("Invalid mesh: vertex count not divisible by 3"), 0};
     }
 
-    // Create temporary directory for 3MF contents
-    QString tempDir = QDir::temp().filePath("lithomaker_3mf_" + QString::number(QDateTime::currentMSecsSinceEpoch()));
-    QDir().mkpath(tempDir);
-    QDir().mkpath(tempDir + "/3D");
-    QDir().mkpath(tempDir + "/_rels");
+    QTemporaryDir packageDir(QDir::temp().filePath("lithomaker_3mf_XXXXXX"));
+    QTemporaryDir archiveDir(QDir::temp().filePath("lithomaker_3mf_archive_XXXXXX"));
+    if (!packageDir.isValid() || !archiveDir.isValid()) {
+        return {false, QObject::tr("Cannot create temporary files for 3MF export"), 0};
+    }
+
+    const QString tempDir = packageDir.path();
+    if (!QDir().mkpath(tempDir + "/3D") || !QDir().mkpath(tempDir + "/_rels")) {
+        return {false, QObject::tr("Cannot create temporary files for 3MF export"), 0};
+    }
 
     // Write content files
-    QFile contentTypes(tempDir + "/[Content_Types].xml");
-    if (contentTypes.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        contentTypes.write(generateContentTypesXml().toUtf8());
-        contentTypes.close();
+    auto writePackageFile = [](const QString& path, const QString& contents) {
+        QFile file(path);
+        if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) return false;
+        const QByteArray bytes = contents.toUtf8();
+        return file.write(bytes) == bytes.size() && file.flush() && file.error() == QFileDevice::NoError;
+    };
+
+    if (!writePackageFile(tempDir + "/[Content_Types].xml", generateContentTypesXml()) ||
+        !writePackageFile(tempDir + "/_rels/.rels", generateRelsXml()) ||
+        !writePackageFile(tempDir + "/3D/3dmodel.model", generateModelXml(mesh))) {
+        return {false, QObject::tr("Failed to write 3MF package contents"), 0};
     }
 
-    QFile rels(tempDir + "/_rels/.rels");
-    if (rels.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        rels.write(generateRelsXml().toUtf8());
-        rels.close();
-    }
+    const QString archivePath = archiveDir.filePath("LithoMaker.3mf");
 
-    QFile model(tempDir + "/3D/3dmodel.model");
-    if (model.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        model.write(generateModelXml(mesh).toUtf8());
-        model.close();
-    }
-
-    // Create ZIP using PowerShell (Windows) or zip command (Linux/Mac)
+    // Create ZIP using PowerShell (Windows) or zip command (Linux/Mac).
+    // Keep user-controlled paths out of PowerShell source code.
     bool success = false;
     
 #ifdef Q_OS_WIN
     // Use PowerShell Compress-Archive
     QProcess process;
-    QString tempDirWin = tempDir;
-    QString filePathWin = filePath;
-    tempDirWin.replace("/", "\\");
-    filePathWin.replace("/", "\\");
-    QString script = QString("Compress-Archive -Path '%1\\*' -DestinationPath '%2' -Force")
-        .arg(tempDirWin)
-        .arg(filePathWin);
-    process.start("powershell", QStringList() << "-Command" << script);
-    process.waitForFinished(30000);
-    success = (process.exitCode() == 0);
+    QProcessEnvironment environment = QProcessEnvironment::systemEnvironment();
+    environment.insert("LITHOMAKER_3MF_SOURCE", QDir::toNativeSeparators(tempDir));
+    environment.insert("LITHOMAKER_3MF_ARCHIVE", QDir::toNativeSeparators(archivePath));
+    process.setProcessEnvironment(environment);
+    const QString script =
+        "$ErrorActionPreference = 'Stop'; "
+        "Compress-Archive -Path (Join-Path -Path $env:LITHOMAKER_3MF_SOURCE -ChildPath '*') "
+        "-DestinationPath $env:LITHOMAKER_3MF_ARCHIVE -Force";
+    process.start("powershell", QStringList() << "-NoProfile" << "-NonInteractive" << "-Command" << script);
+    success = process.waitForStarted() && process.waitForFinished(30000) &&
+              process.exitStatus() == QProcess::NormalExit && process.exitCode() == 0;
+    if (process.state() != QProcess::NotRunning) {
+        process.kill();
+        process.waitForFinished();
+    }
 #else
     // Use zip command on Linux/Mac
     QProcess process;
     process.setWorkingDirectory(tempDir);
-    process.start("zip", QStringList() << "-r" << filePath << ".");
-    process.waitForFinished(30000);
-    success = (process.exitCode() == 0);
+    process.start("zip", QStringList() << "-q" << "-r" << archivePath << ".");
+    success = process.waitForStarted() && process.waitForFinished(30000) &&
+              process.exitStatus() == QProcess::NormalExit && process.exitCode() == 0;
+    if (process.state() != QProcess::NotRunning) {
+        process.kill();
+        process.waitForFinished();
+    }
 #endif
 
-    // Cleanup temp directory
-    QDir(tempDir).removeRecursively();
-
-    if (!success) {
+    if (!success || !QFileInfo(archivePath).isFile() || QFileInfo(archivePath).size() == 0) {
         return {false, QObject::tr("Failed to create 3MF archive"), 0};
     }
 
-    QFile file(filePath);
-    qint64 size = file.exists() ? file.size() : 0;
+    QFile archive(archivePath);
+    if (!archive.open(QIODevice::ReadOnly)) {
+        return {false, QObject::tr("Failed to read temporary 3MF archive"), 0};
+    }
+
+    QSaveFile output(filePath);
+    if (!output.open(QIODevice::WriteOnly)) {
+        return {false, QObject::tr("Cannot open file for writing: ") + output.errorString(), 0};
+    }
+
+    QByteArray buffer(1024 * 1024, '\0');
+    while (true) {
+        const qint64 bytesRead = archive.read(buffer.data(), buffer.size());
+        if (bytesRead < 0) {
+            output.cancelWriting();
+            return {false, QObject::tr("Failed to read temporary 3MF archive"), 0};
+        }
+        if (bytesRead == 0) break;
+        if (output.write(buffer.constData(), bytesRead) != bytesRead) {
+            output.cancelWriting();
+            return {false, QObject::tr("Failed while writing output file: ") + output.errorString(), 0};
+        }
+    }
+
+    if (!output.commit()) {
+        return {false, QObject::tr("Failed while writing output file: ") + output.errorString(), 0};
+    }
+
+    const qint64 size = QFileInfo(filePath).size();
 
     qInfo() << "Exported 3MF:" << filePath << "(" << size << "bytes)";
 
