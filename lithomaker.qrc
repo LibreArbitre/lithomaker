@@ -11,5 +11,6 @@
     <file alias="mainconfig.png">icons/mainconfig.png</file>
     <file alias="renderconfig.png">icons/renderconfig.png</file>
     <file alias="exportconfig.png">icons/exportconfig.png</file>
+    <file alias="hummingbird.png">examples/hummingbird.png</file>
   </qresource>
 </RCC>

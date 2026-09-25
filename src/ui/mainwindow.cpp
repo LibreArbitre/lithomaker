@@ -247,8 +247,10 @@ void MainWindow::loadSettings() {
     
     restoreGeometry(settings.value("main/geometry").toByteArray());
 #ifdef BUILD_WASM
-    // Browser file selections live in the temporary WASM filesystem only.
-    m_inputLineEdit->clear();
+    // Start with the bundled example so the browser version is ready to preview.
+    m_wasmInputFilePath = ":/hummingbird.png";
+    m_inputLineEdit->setText(tr("hummingbird.png (example)"));
+    m_statusLabel->setText(tr("Example image loaded. Click Preview to generate the 3D model."));
 #else
     m_inputLineEdit->setText(settings.value("main/inputFile", "examples/hummingbird.png").toString());
 #endif
