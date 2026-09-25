@@ -1,195 +1,106 @@
-# LithoMaker v1.0
+# LithoMaker 1.1.0
 
-Creates 3D lithophanes from image files and exports them to STL, OBJ, or 3MF files, ready for slicing and 3D printing.
+LithoMaker turns an image into a 3D lithophane that you can preview, adjust, and export for 3D printing. It is available as a desktop app and as a browser app.
 
-**This is a modernized fork of [LithoMaker by Lars Muldjord](https://github.com/muldjord/lithomaker).**
+[Open LithoMaker in your browser](https://librearbitre.github.io/lithomaker/) · [Download the latest desktop release](https://github.com/LibreArbitre/lithomaker/releases/latest)
 
-Download the latest release [here](https://github.com/LibreArbitre/lithomaker/releases/download/1.0.0/LithoMaker-Windows-x64.zip).
+This is a modernized fork of [LithoMaker by Lars Muldjord](https://github.com/muldjord/lithomaker).
 
-Check out the original video tutorial [here](https://youtu.be/Bjbdk0XiiNY).
+## Browser version
 
-LithoMaker DOES NOT upload or process your image files online. All processing is done on your own computer requiring no internet access.
+The browser version runs locally in your browser. Images and generated models are not uploaded to a LithoMaker server. It opens with a sample image, so you can click **Preview** and try the 3D view immediately. You can also load your own image and export the model from the browser.
 
-## What's New in v1.1
+Use a modern browser with WebAssembly and WebGL 2 support. The browser version exports STL (binary or ASCII) and OBJ. 3MF export is available in the desktop app only.
 
-- **Separate Preview and Export**: Preview your lithophane in 3D before exporting
-- **Flip Image Vertically**: Option to flip the image orientation
-- **Detachable Stabilizer Feet**: Breakaway feet with thin necking for easy removal
-- **Fixed Stabilizer Geometry**: Proper watertight mesh compatible with all slicers
+## Features
 
-### Previous Release (v1.0)
-- Multiple image formats: JPEG, PNG, WEBP, TIFF, and BMP
-- 3D Preview with mouse rotation and zoom
-- Multiple export formats: STL (binary/ASCII), OBJ, and 3MF
-- Drag & drop image loading
-- Multi-threaded mesh generation
-- Dark theme
+- Preview a lithophane in 3D before exporting; rotate it by dragging and zoom with the mouse wheel.
+- Load PNG, JPEG, WebP, TIFF, and BMP images.
+- Set the minimum thickness, total thickness, frame border, and model width.
+- Flip the image vertically when needed.
+- Add stabilizer feet and optional hangers in the desktop app's Render preferences.
+- Export STL (binary or ASCII), OBJ, or 3MF on desktop.
+- Generate meshes on multiple CPU threads in desktop builds that support OpenMP.
 
-## Running LithoMaker
+## Download the desktop app
 
-### 🌐 Web Browser (No Installation)
-* **Try it now**: [LithoMaker Web](https://librearbitre.github.io/lithomaker/)
-* Works in Chrome, Firefox, Edge, and Safari
-* All processing happens locally - your images never leave your device
-* Requires WebAssembly support (all modern browsers)
-
-### Windows
-* Download the latest `LithoMaker-Windows-x64.zip` from the [releases page](https://github.com/LibreArbitre/lithomaker/releases)
-* Unzip to any folder and run `LithoMaker.exe`
-
-### Ubuntu Linux
-* Download the latest `LithoMaker-Linux-x86_64.AppImage` from the [releases page](https://github.com/LibreArbitre/lithomaker/releases)
-* Right-click → Properties → Permissions → "Allow executing file as program"
-* Double-click to run
-
-### macOS
-* Download the latest `LithoMaker-macOS-Universal.dmg` from the [releases page](https://github.com/LibreArbitre/lithomaker/releases)
-* Open and drag to Applications
+Download the package for your platform from the [latest release](https://github.com/LibreArbitre/lithomaker/releases/latest). Extract or install it, then launch LithoMaker. The browser version is available at [librearbitre.github.io/lithomaker](https://librearbitre.github.io/lithomaker/) and needs no installation.
 
 ## Using LithoMaker
 
-### Main Settings
-* **Minimum thickness**: The thinnest part of the lithophane (brightest areas). Keep at 0.8mm minimum.
-* **Total thickness**: The thickest part (darkest areas). See thickness guide below.
-* **Frame border**: Width of the frame in millimeters.
-* **Width**: Total width of the lithophane including frame. Height adjusts automatically.
-* **Flip image vertically**: Toggle to correct image orientation if needed.
+1. Load an image by dragging it into the desktop app or using the image button. In the browser, use the image button to choose a file.
+2. Set the minimum thickness, total thickness, frame border, and width.
+3. Click **Preview** to generate and inspect the 3D model. Drag in the preview to rotate it.
+4. Change the image orientation or dimensions if needed, then preview again.
+5. Click **Export** and save the generated model.
 
-### Workflow
-1. **Load image**: Drag & drop or click to browse
-2. **Adjust settings**: Thickness, frame, size
-3. **Click Preview**: View the 3D result
-4. **Adjust if needed**: Toggle flip, change settings, re-preview
-5. **Click Export**: Save when satisfied
+### Thickness settings
 
-### Stabilizers
-Stabilizers are small feet that support the lithophane during vertical printing. They prevent wobbling and print failures. 
+Minimum thickness controls the thinnest, brightest parts of the lithophane. Total thickness controls its deepest, darkest parts. A minimum thickness of at least 0.8 mm is a useful starting point.
 
-**Options** (in Preferences → Render):
-- **Enable stabilizers**: Toggle stabilizers on/off
-- **Make stabilizers permanent**: When unchecked (default), feet have a thin breakaway connection for easy removal. When checked, feet are solid.
+| Total thickness | Typical use |
+| --- | --- |
+| 3–4 mm | Small pieces and test prints |
+| 5 mm | General use and detailed images |
+| 6 mm | Larger images with stronger relief |
 
-### Hangers
-Small loops at the top allow you to hang your lithophane in a window or light box.
+The frame border and width are measured in millimeters. LithoMaker preserves the input image's aspect ratio when calculating the model height.
 
-## 🎯 Printing Optimization Guide
+### Print suggestions
 
-### Thickness Settings (LithoMaker)
+- Use white or natural PLA and print the lithophane vertically.
+- Use 100% infill so light can pass through the varying thickness.
+- A layer height of 0.16 mm is a useful general setting; 0.12 mm can show more detail.
+- Stabilizer feet can support a vertically printed model. In desktop preferences, choose whether they should break away or remain solid.
+- Desktop preferences can also add hangers to the top of the model.
 
-| Thickness | Effect | Recommended For |
-|-----------|--------|-----------------|
-| **3-4mm** | Standard contrast, faster print | Small pieces, tests |
-| **5mm** | Good relief and detail | **Most lithophanes** |
-| **6mm** | Maximum relief | Large portraits, exhibition pieces |
+## Build from source
 
-> **Tip**: Going from 4mm to 5mm provides noticeable improvement. 5mm is the sweet spot for quality vs print time.
+LithoMaker uses C++17, CMake 3.21 or later, and Qt 6.5.3.
 
-### Layer Height (Slicer)
+### Desktop
 
-| Layer Height | Quality | Print Time |
-|--------------|---------|------------|
-| **0.20mm** | Acceptable, visible stepping | Fastest |
-| **0.16mm** | **Good compromise** | Moderate |
-| **0.12mm** | **Optimal for portraits** | Longer |
-| **0.08mm** | Maximum quality | Very long |
+Install Qt 6.5.3 with the Core, Widgets, Gui, OpenGL, and OpenGLWidgets modules, then configure and build:
 
-> **Recommendation**: Use **0.16mm** for general use, **0.12mm** for detailed portraits.
-
-### Print Settings
-
-| Setting | Value | Why |
-|---------|-------|-----|
-| **Infill** | 100% | Required for light transmission |
-| **Speed** | 30-40mm/s | Reduces vibration artifacts |
-| **Orientation** | Vertical | How LithoMaker generates the model |
-| **Supports** | None needed | Stabilizer feet provide support |
-| **Filament** | White/Natural PLA | Best light transmission |
-
-### Best Practices
-
-1. **Image Preparation**: Use high-quality PNG, avoid heavily compressed JPEGs
-2. **Convert to grayscale** before loading (optional but recommended)
-3. **Resize large images** to 1500-2000 pixels width for faster processing
-4. **Test with small prints** (50-80mm width) before printing large pieces
-5. **Light source**: Place behind the lithophane for best effect
-
-## Preparing Your Photo
-
-For optimal results, prepare your photo using an image editor like [GIMP](https://www.gimp.org/):
-
-1. Apply noise reduction to smooth out grainy areas
-2. Use Auto → White Balance to maximize contrast
-3. Crop to your desired composition
-4. Scale to about 1500 pixels width (optional but recommended)
-5. Convert to grayscale
-6. Export as PNG
-
-## Building from Source
-
-### Prerequisites
-- A C++ compiler (GCC, Clang, or MSVC)
-- CMake 3.21 or later
-- Qt 6.2 or later with OpenGL support
-
-### Linux
-```bash
-# Install dependencies (Ubuntu/Debian)
-sudo apt install qt6-base-dev qt6-opengl-dev libomp-dev cmake build-essential
-
-# Build
-mkdir build && cd build
-cmake .. -DCMAKE_BUILD_TYPE=Release
-make -j$(nproc)
+```sh
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --parallel
 ```
 
-### Windows
-```powershell
-mkdir build
-cd build
-cmake .. -DCMAKE_PREFIX_PATH="C:\Qt\6.x.x\msvc2019_64"
-cmake --build . --config Release
+### WebAssembly
+
+The browser build requires the Qt 6.5.3 WebAssembly kit and the Emscripten version supported by that kit (3.1.25):
+
+```sh
+<Qt-WASM>/bin/qt-cmake -S . -B build-wasm \
+  -DBUILD_WASM=ON \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DQT_HOST_PATH=<Qt-host>
+cmake --build build-wasm --parallel
 ```
 
-### macOS
-```bash
-brew install qt@6 cmake libomp
-mkdir build && cd build
-cmake .. -DCMAKE_PREFIX_PATH=$(brew --prefix qt@6)
-make -j$(sysctl -n hw.ncpu)
-```
+The generated HTML, JavaScript, and WebAssembly files must be served over HTTP; opening the HTML directly from disk is not supported. GitHub Pages deployment is configured in `.github/workflows/build-wasm.yml`.
 
-## Release Notes
+## Release history
 
-#### Version 1.1.0 (December 2024)
-UX improvements and fixes:
-* Separate Preview and Export buttons for better workflow
-* Added "Flip image vertically" option
-* Detachable stabilizer feet with thin breakaway connection
-* Fixed stabilizer geometry for proper slicer compatibility
-* Added comprehensive printing optimization guide
+### 1.1.0
 
-#### Version 1.0.0 (December 2024)
-Complete modernization:
-* Added support for JPEG, WEBP, TIFF, and BMP images
-* Real-time 3D preview with mouse rotation and zoom
-* Export to OBJ and 3MF in addition to STL
-* Drag & drop image loading
-* Multi-threaded mesh generation using OpenMP
-* Modern dark theme
-* Migrated build system to CMake
-* Refactored codebase to modular architecture
+- Added separate Preview and Export actions and image-flip control.
+- Improved stabilizer geometry and added breakaway feet.
+- Added a browser edition with a working WebGL 2 preview, image loading, and STL/OBJ export.
+- Added the bundled example image for an immediate browser preview.
 
-#### Version 0.7.1 (25th Nov 2021)
-* Last release by original author Lars Muldjord
-* See [original repository](https://github.com/muldjord/lithomaker) for full history
+### 1.0.0
 
-## Credits
+- Modernized the application and moved the build system to CMake.
+- Added JPEG, WebP, TIFF, and BMP support, plus OBJ and 3MF export.
+- Added the 3D preview, image drag and drop, and multi-threaded desktop mesh generation.
 
-* **Original author**: [Lars Muldjord](https://github.com/muldjord)
-* **v1.0 modernization**: Contributors
+### 0.7.1
 
-## License
+Last release by original author Lars Muldjord. See the [original repository](https://github.com/muldjord/lithomaker) for its history.
 
-LithoMaker is licensed under the [GNU General Public License v2](LICENSE).
+## Credits and license
 
-This is free software: you can redistribute it and/or modify it under the terms of the GPL as published by the Free Software Foundation.
+- Original author: [Lars Muldjord](https://github.com/muldjord)
+- LithoMaker is licensed under [GNU GPL v2 or later](LICENSE).

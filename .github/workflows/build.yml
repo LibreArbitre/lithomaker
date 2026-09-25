@@ -5,6 +5,7 @@ on:
     branches: [ main, master ]
     tags:
       - 'v*'
+      - '[0-9]*'
   pull_request:
     branches: [ main, master ]
 
@@ -21,7 +22,6 @@ jobs:
       uses: jurplel/install-qt-action@v3
       with:
         version: ${{ env.QT_VERSION }}
-        modules: 'qt3d'
         arch: 'win64_msvc2019_64'
 
     - name: Setup MSVC
@@ -65,7 +65,6 @@ jobs:
       uses: jurplel/install-qt-action@v3
       with:
         version: ${{ env.QT_VERSION }}
-        modules: 'qt3d'
 
     - name: Install dependencies
       run: |
@@ -112,7 +111,8 @@ jobs:
         path: LithoMaker-Linux-x86_64.AppImage
 
   build-macos:
-    runs-on: macos-latest
+    # Qt 6.5.3 still links the legacy AGL framework, removed from the macOS 26 SDK.
+    runs-on: macos-15
     steps:
     - uses: actions/checkout@v4
 
@@ -120,7 +120,6 @@ jobs:
       uses: jurplel/install-qt-action@v3
       with:
         version: ${{ env.QT_VERSION }}
-        modules: 'qt3d'
 
     - name: Install OpenMP
       run: brew install libomp
