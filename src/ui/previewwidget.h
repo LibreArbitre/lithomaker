@@ -8,7 +8,13 @@
 
 #pragma once
 
+#ifdef BUILD_WASM
+#include <QOpenGLWindow>
+using PreviewSurface = QOpenGLWindow;
+#else
 #include <QOpenGLWidget>
+using PreviewSurface = QOpenGLWidget;
+#endif
 #include <QOpenGLFunctions>
 #include <QOpenGLBuffer>
 #include <QOpenGLShaderProgram>
@@ -28,7 +34,7 @@ namespace LithoMaker {
  *
  * Displays the lithophane mesh with mouse-controlled rotation and zoom.
  */
-class PreviewWidget : public QOpenGLWidget, protected QOpenGLFunctions {
+class PreviewWidget : public PreviewSurface, protected QOpenGLFunctions {
     Q_OBJECT
 
 public:

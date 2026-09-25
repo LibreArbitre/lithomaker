@@ -7,9 +7,7 @@
  */
 
 #include "mainwindow.h"
-#ifndef BUILD_WASM
 #include "previewwidget.h"
-#endif
 #include "widgets/slider.h"
 #include "aboutbox.h"
 #include "configdialog.h"
@@ -203,23 +201,17 @@ void MainWindow::createWidgets() {
 
     controlsLayout->addStretch();
 
-#ifndef BUILD_WASM
     // Right panel - 3D preview
     m_previewWidget = new PreviewWidget();
 
     splitter->addWidget(controlsWidget);
+#ifdef BUILD_WASM
+    splitter->addWidget(QWidget::createWindowContainer(m_previewWidget, splitter));
+#else
     splitter->addWidget(m_previewWidget);
+#endif
     splitter->setStretchFactor(0, 1);
     splitter->setStretchFactor(1, 2);
-#else
-    // WASM: No 3D preview, just use controls
-    splitter->addWidget(controlsWidget);
-    auto* placeholder = new QLabel(tr("3D Preview not available in browser version"));
-    placeholder->setAlignment(Qt::AlignCenter);
-    splitter->addWidget(placeholder);
-    splitter->setStretchFactor(0, 1);
-    splitter->setStretchFactor(1, 1);
-#endif
 
     mainLayout->addWidget(splitter);
 
@@ -400,9 +392,7 @@ void MainWindow::onPreviewClicked() {
     m_exportButton->setEnabled(false);
     m_meshReady = false;
     m_currentMesh.clear();
-#ifndef BUILD_WASM
     m_previewWidget->clear();
-#endif
     m_progressBar->setVisible(true);
     m_progressBar->setValue(0);
     m_statusLabel->setText(tr("Loading image..."));
@@ -488,10 +478,8 @@ void MainWindow::onPreviewClicked() {
     m_statusLabel->setText(tr("Updating preview..."));
     QApplication::processEvents();
 
-#ifndef BUILD_WASM
     // Update preview
     m_previewWidget->setMesh(std::move(generatedMesh));
-#endif
 
     m_progressBar->setValue(100);
     m_progressBar->setVisible(false);
@@ -527,9 +515,7 @@ void MainWindow::invalidateMesh(const QString& reason) {
     m_meshReady = false;
     m_currentMesh.clear();
     if (m_exportButton) m_exportButton->setEnabled(false);
-#ifndef BUILD_WASM
     if (m_previewWidget) m_previewWidget->clear();
-#endif
     if (m_statusLabel) m_statusLabel->setText(reason);
 }
 

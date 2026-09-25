@@ -106,11 +106,9 @@ set(UI_HEADERS
     src/ui/widgets/lineedit.h
 )
 
-# PreviewWidget uses QOpenGLWidget - not available in WASM
-if(NOT BUILD_WASM)
-    list(APPEND UI_SOURCES src/ui/previewwidget.cpp)
-    list(APPEND UI_HEADERS src/ui/previewwidget.h)
-endif()
+# PreviewWidget uses QOpenGLWidget on desktop and QOpenGLWindow in WASM.
+list(APPEND UI_SOURCES src/ui/previewwidget.cpp)
+list(APPEND UI_HEADERS src/ui/previewwidget.h)
 
 # Resources
 set(RESOURCES

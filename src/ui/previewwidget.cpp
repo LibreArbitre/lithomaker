@@ -14,9 +14,14 @@
 
 namespace LithoMaker {
 
+#ifdef BUILD_WASM
+#define SHADER_VERSION "#version 300 es\nprecision highp float;\n"
+#else
+#define SHADER_VERSION "#version 330 core\n"
+#endif
+
 // Vertex shader
-static const char* vertexShaderSource = R"(
-    #version 330 core
+static const char* vertexShaderSource = SHADER_VERSION R"(
     layout(location = 0) in vec3 position;
     layout(location = 1) in vec3 normal;
     
@@ -35,8 +40,7 @@ static const char* vertexShaderSource = R"(
 )";
 
 // Fragment shader with Phong lighting
-static const char* fragmentShaderSource = R"(
-    #version 330 core
+static const char* fragmentShaderSource = SHADER_VERSION R"(
     in vec3 fragNormal;
     in vec3 fragPos;
     
@@ -71,14 +75,26 @@ static const char* fragmentShaderSource = R"(
 )";
 
 PreviewWidget::PreviewWidget(QWidget* parent)
+#ifdef BUILD_WASM
+    : QOpenGLWindow(QOpenGLWindow::NoPartialUpdate)
+#else
     : QOpenGLWidget(parent)
+#endif
 {
     setMinimumSize(300, 300);
+#ifndef BUILD_WASM
     setFocusPolicy(Qt::StrongFocus);
+#endif
     
     // Enable multisampling for smoother edges
     QSurfaceFormat format;
+#ifndef BUILD_WASM
     format.setSamples(4);
+#else
+    // The WebAssembly shaders use GLSL ES 3.00, which maps to WebGL 2.
+    format.setRenderableType(QSurfaceFormat::OpenGLES);
+    format.setVersion(3, 0);
+#endif
     format.setDepthBufferSize(24);
     setFormat(format);
 }
