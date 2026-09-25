@@ -81,7 +81,7 @@ PreviewWidget::PreviewWidget(QWidget* parent)
     : QOpenGLWidget(parent)
 #endif
 {
-    setMinimumSize(300, 300);
+    setMinimumSize(QSize(300, 300));
 #ifndef BUILD_WASM
     setFocusPolicy(Qt::StrongFocus);
 #endif
